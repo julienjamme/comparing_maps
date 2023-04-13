@@ -10,6 +10,16 @@ knitr::opts_chunk$set(echo = TRUE)
 ```
 
 
+## Objectives
+
+- Learn how to use the functions within the `SpatialKWD` package
+- How the KWD measure reacts to different kinds of compared maps
+- How different from a standard measure is the KWD measure when comparing maps ?
+
+- Learn about the time computation : How big can be the maps to compare them in a realistic time  ?
+- L = 2/L=3/L=10 => how does this paramter influence the quality of the measure and the computation's time ?
+
+
 
 ```{r}
 if(! "SpatialKWD" %in% installed.packages()[,1]) install.packages("SpatialKWD")
@@ -51,7 +61,7 @@ rmse <- function(weights){
   
   sapply(1:(ncol(weights)-1),
          function(c){
-           sqdiff <- (weights[,1]-weights[,2])^2
+           sqdiff <- (weights[,1]-weights[,c])^2
            return(sqrt(mean(sqdiff)))
          }
   )
