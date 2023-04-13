@@ -13,6 +13,7 @@ knitr::opts_chunk$set(echo = TRUE)
 
 ```{r}
 if(! "SpatialKWD" %in% installed.packages()[,1]) install.packages("SpatialKWD")
+library(ggplot2)
 library(purrr)
 library(dplyr)
 library(SpatialKWD)
@@ -340,10 +341,26 @@ matrix_to_maps(coordinates, weights) |> plot()
 
 ```{r}
 kwd_autocorr <- compareOneToMany(coordinates, weights, recode = TRUE)
+kwd_autocorr
 ```
 
 ```{r}
 rmse_autocorr <- rmse(weights)
 rmse_autocorr
+```
+
+
+```{r}
+tibble(
+  sd = c(0.001,0.01,0.1, 0.5, 1),
+  kwd = kwd_autocorr$distance,
+  rmse = rmse_autocorr
+) %>%
+  tidyr::pivot_longer( cols = c("kwd", "rmse"), names_to = "measure", values_to = "val") %>% 
+  ggplot(aes(x=sd, y = val, color = measure)) +
+  geom_line() +
+  geom_point() +
+  scale_x_log10("sd (log-10 scale)") +
+  theme_minimal()
 ```
 
