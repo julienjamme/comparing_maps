@@ -1,0 +1,349 @@
+---
+title: "Using SpatialKWD package"
+author: "Julien Jamme"
+date: "2023-04-13"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+
+
+```{r}
+if(! "SpatialKWD" %in% installed.packages()[,1]) install.packages("SpatialKWD")
+library(purrr)
+library(dplyr)
+library(SpatialKWD)
+library(raster)
+```
+
+```{r}
+#' From matrix of coordinates and weights to raster maps
+#'
+#' @param coordinates matrix of coordinates (two columns and N rows) for x,y of the raster
+#' @param weights matrix of weights for the z values of the raster (at least one column and N rows)
+#' if there are several columns, all of them will be available
+#'
+#' @return raster object
+#'
+#' @examples
+matrix_to_maps <- function(coordinates, weights){
+  
+  xyz <- cbind(coordinates, weights)
+  r <- rasterFromXYZ(xyz = xyz)
+  
+}
+```
+
+
+```{r}
+#' Compute the RMSE where between one reference and several estimates
+#'
+#' @param weights : first col is the reference
+#'
+#' @return vector of rmses between the frst column and each of the others
+#'
+#' @examples
+rmse <- function(weights){
+  
+  sapply(1:(ncol(weights)-1),
+         function(c){
+           sqdiff <- (weights[,1]-weights[,2])^2
+           return(sqrt(mean(sqdiff)))
+         }
+  )
+}
+```
+
+
+```{r}
+shift_weight <- function(coordinates, weights, type = "horizontal", shift = 1){
+  require(dplyr)
+  
+  data <- cbind(coordinates[,1:2], weights[,1]) %>% 
+    as_tibble()
+  names(data) <- paste0("V",1:3)
+  shifted <- data %>% {
+    if(type == "horizontal") arrange(.,V2) %>% group_by(V2) else arrange(.,V1) %>% group_by(V1)} %>% 
+    mutate(V4 = lag(V3, default = 0)) %>% {
+      if(type != "horizontal") arrange(.,V2,V1) else .} %>% 
+    pull(V4)
+  return(cbind(weights, shifted))
+}
+```
+
+```{r}
+from_matrix_to_column <- function(mat){
+  
+  purrr::reduce(mat, rbind)
+  
+}
+```
+
+
+
+## `CompareOneToOne()`
+
+This function lets compare a distribution with one another.
+
+### Example of the documentation
+
+```{r}
+set.seed(4081789)
+# Random coordinates
+N = 90
+Xs <- as.integer(runif(N, 0, 31))
+Ys <- as.integer(runif(N, 0, 31))
+coordinates <- matrix(c(Xs, Ys), ncol=2, nrow=N)
+# Random weights
+test1 <- matrix(runif(2*N, 0, 1), ncol=2, nrow=N)
+```
+
+
+```{r}
+matrix_to_maps(coordinates, test1) |> plot()
+```
+
+
+
+```{r}
+d_OTO <- compareOneToOne(
+  coordinates, Weights=test1, 
+  L = 2,
+  method="approx",recode=TRUE, 
+)
+```
+
+```{r}
+rmse(test1)
+```
+
+
+```{r}
+str(d_OTO)
+```
+
+### Other simple examples
+
+#### Parameters
+
+```{r}
+wid = 10
+len = 10
+N = wid * len
+
+Xs <- 1:wid
+Ys <- 1:len
+
+coordinates <- expand.grid(Xs, Ys) |> as.matrix()
+```
+
+
+#### Random noise
+
+```{r}
+set.seed(4081789)
+weights <- matrix(runif(2*N, 0, 1), ncol=2, nrow=N)
+```
+
+
+```{r}
+matrix_to_maps(coordinates, weights) |> plot()
+```
+
+```{r}
+kwd_rn <- compareOneToOne(coordinates, weights, verbosity = "silent")
+kwd_rn$distance
+```
+
+```{r}
+rmse_rn <- rmse(weights)
+rmse_rn
+```
+
+#### Two identical maps
+
+
+```{r}
+weights <- matrix(runif(N, 0, 1), ncol=1, nrow=N)
+weights <- cbind(weights, weights)
+```
+
+
+```{r}
+matrix_to_maps(coordinates, weights) |> plot()
+```
+
+```{r}
+kwd_id <- compareOneToOne(coordinates, weights, verbosity = "silent")
+kwd_id$distance
+```
+
+```{r}
+rmse_id <- rmse(weights)
+rmse_id
+```
+
+#### Two horizontal shifted maps
+
+```{r}
+set.seed(4081789)
+weights <- matrix(runif(N, 0, 1), ncol=1, nrow=N)
+weights <- shift_weight(coordinates, weights)
+```
+
+
+```{r}
+matrix_to_maps(coordinates, weights) |> plot()
+```
+
+```{r}
+kwd_sh <- compareOneToOne(coordinates, weights, verbosity = "silent")
+kwd_sh$distance
+```
+
+```{r}
+rmse_sh <- rmse(weights)
+rmse_sh
+```
+
+#### Two vertical shifted maps
+
+```{r}
+set.seed(4081789)
+weights <- matrix(runif(N, 0, 1), ncol=1, nrow=N)
+weights <- shift_weight(coordinates, weights, type = "vertical")
+```
+
+
+```{r}
+matrix_to_maps(coordinates, weights) |> plot()
+```
+
+```{r}
+kwd_sv <- compareOneToOne(coordinates, weights, verbosity = "silent")
+kwd_sv$distance
+```
+
+```{r}
+rmse_sv <- rmse(weights)
+rmse_sv
+```
+
+
+#### Chessboard maps
+
+```{r}
+vs <- c(0.25,0.75)
+b1 <- matrix(vs[1], ncol = len/2, nrow = wid/2)
+b2 <- matrix(vs[2], ncol = len/2, nrow = wid/2)
+w1 <- rbind(cbind(b1,b2),cbind(b2,b1))
+w2 <- rbind(cbind(b2,b1),cbind(b1,b2))
+
+weights <- cbind(
+  from_matrix_to_column(w1),
+  from_matrix_to_column(w2)
+)
+```
+
+```{r}
+matrix_to_maps(coordinates, weights) |> plot()
+```
+
+```{r}
+kwd_ch <- compareOneToOne(coordinates, weights, verbosity = "silent")
+kwd_ch$distance
+```
+
+```{r}
+rmse_ch <- rmse(weights)
+rmse_ch
+```
+
+#### Chessboard maps 2
+
+```{r}
+vs <- c(0.25,0.75)
+b1 <- matrix(vs[1], ncol = 1, nrow = 1)
+b2 <- matrix(vs[2], ncol = 1, nrow = 1)
+w1 <- rbind(
+  cbind(b1,b2,b1,b2,b1,b2,b1,b2,b1,b2),
+  cbind(b2,b1,b2,b1,b2,b1,b2,b1,b2,b1),
+  cbind(b1,b2,b1,b2,b1,b2,b1,b2,b1,b2),
+  cbind(b2,b1,b2,b1,b2,b1,b2,b1,b2,b1),
+  cbind(b1,b2,b1,b2,b1,b2,b1,b2,b1,b2),
+  cbind(b2,b1,b2,b1,b2,b1,b2,b1,b2,b1),
+  cbind(b1,b2,b1,b2,b1,b2,b1,b2,b1,b2),
+  cbind(b2,b1,b2,b1,b2,b1,b2,b1,b2,b1),
+  cbind(b1,b2,b1,b2,b1,b2,b1,b2,b1,b2),
+  cbind(b2,b1,b2,b1,b2,b1,b2,b1,b2,b1)
+)
+w2 <- rbind(
+  cbind(b2,b1,b2,b1,b2,b1,b2,b1,b2,b1),
+  cbind(b1,b2,b1,b2,b1,b2,b1,b2,b1,b2),
+  cbind(b2,b1,b2,b1,b2,b1,b2,b1,b2,b1),
+  cbind(b1,b2,b1,b2,b1,b2,b1,b2,b1,b2),
+  cbind(b2,b1,b2,b1,b2,b1,b2,b1,b2,b1),
+  cbind(b1,b2,b1,b2,b1,b2,b1,b2,b1,b2),
+  cbind(b2,b1,b2,b1,b2,b1,b2,b1,b2,b1),
+  cbind(b1,b2,b1,b2,b1,b2,b1,b2,b1,b2),
+  cbind(b2,b1,b2,b1,b2,b1,b2,b1,b2,b1),
+  cbind(b1,b2,b1,b2,b1,b2,b1,b2,b1,b2)
+)
+
+weights <- cbind(
+  from_matrix_to_column(w1),
+  from_matrix_to_column(w2)
+)
+```
+
+```{r}
+matrix_to_maps(coordinates, weights) |> plot()
+```
+
+```{r}
+kwd_ch2 <- compareOneToOne(coordinates, weights, verbosity = "silent")
+kwd_ch2$distance
+```
+
+```{r}
+rmse_ch2 <- rmse(weights)
+rmse_ch2
+```
+
+#### Autocorrelated information
+
+```{r}
+data(meuse.grid, package = "sp")
+dim(meuse.grid)
+```
+
+```{r}
+set.seed(4081789)
+coordinates <- as.matrix(meuse.grid[,1:2])
+weights <- cbind(
+  meuse.grid[,"dist"] + 10,
+  meuse.grid[,"dist"] + 10 + rnorm(nrow(meuse.grid), 0, 0.001),
+  meuse.grid[,"dist"] + 10 + rnorm(nrow(meuse.grid), 0, 0.01),
+  meuse.grid[,"dist"] + 10 + rnorm(nrow(meuse.grid), 0, 0.1),
+  meuse.grid[,"dist"] + 10 + rnorm(nrow(meuse.grid), 0, 0.5),
+  meuse.grid[,"dist"] + 10 + rnorm(nrow(meuse.grid), 0, 1)
+)
+```
+
+
+```{r}
+matrix_to_maps(coordinates, weights) |> plot()
+```
+
+```{r}
+kwd_autocorr <- compareOneToMany(coordinates, weights, recode = TRUE)
+```
+
+```{r}
+rmse_autocorr <- rmse(weights)
+rmse_autocorr
+```
+
