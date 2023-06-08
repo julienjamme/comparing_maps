@@ -374,3 +374,41 @@ tibble(
   theme_minimal()
 ```
 
+
+#### Autocorrelated information 2
+
+```{r}
+set.seed(4081789)
+coordinates <- as.matrix(meuse.grid[,1:2])
+weights <- cbind(
+  meuse.grid[,"dist"] + 10,
+  meuse.grid[,"dist"] + 10 + rnorm(nrow(meuse.grid), 0, 0.001),
+  meuse.grid[,"dist"] + 10 + rnorm(nrow(meuse.grid), 0, 0.01),
+  meuse.grid[,"dist"] + 10 + rnorm(nrow(meuse.grid), 0, 0.1),
+  meuse.grid[,"dist"] + 10 + rnorm(nrow(meuse.grid), 0, 0.5),
+  meuse.grid[,"dist"] + 10 + rnorm(nrow(meuse.grid), 0, 1)
+)
+```
+
+```{r}
+r_meuse <- rasterFromXYZ(meuse.grid[, c("x","y","dist")])
+nrow(r_meuse) <- ncol(r_meuse)
+r_meuse_flip1 <- flip(r_meuse, direction = 1)
+r_meuse_flip2 <- flip(r_meuse, direction = 2)
+
+s_meuse <- stack(r_meuse, r_meuse_flip1, r_meuse_flip2)
+plot(s_meuse)
+
+coordinates <- coordinates(s_meuse)
+weights <- cbind(
+  values(s_meuse$dist.1),
+  values(s_meuse$dist.2),
+  values(s_meuse$dist.3)
+)
+matrix_to_maps(coordinates, weights) |> plot()
+```
+
+```{r}
+compareOneToMany(coordinates, weights, recode = TRUE)
+```
+
