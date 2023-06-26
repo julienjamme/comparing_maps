@@ -122,6 +122,12 @@ rmse_reunion_ind
 ## Working with a city map
 
 
+```{r}
+st_louis_centroide <- sf::st_as_sf(
+  data.frame(x=c(333310,339601),y=c(7644145,7649149)), coords = c("x","y"), crs = 2975) %>% 
+  sf::st_as_sfc()
+dataGrid <- sf::st_make_grid(st_louis_centroide, cellsize = 1000, what = "centers") 
+```
 
 
 
