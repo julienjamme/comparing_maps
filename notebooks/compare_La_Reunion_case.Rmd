@@ -104,7 +104,6 @@ kwd_reunion_ind <- compareOneToMany(
 kwd_reunion_ind$distance
 ```
 
-
 ```{r}
 hell_reunion_ind <- hellinger(
   reunion_raster_Ind %>% values()
@@ -119,15 +118,75 @@ rmse_reunion_ind <- rmse(
 rmse_reunion_ind
 ```
 
+```{r}
+tibble(
+  map = c("smooth_2km","smooth_5km","smooth_10km", "perm_alea"),
+  kwd = kwd_reunion_ind$distance,
+  hellinger = hell_reunion_ind,
+  rmse = rmse_reunion_ind
+)
+```
+
+Remark: Unexpected result for kwd while going from 2km to 5km bandwidth.
+
 ## Working with a city map
 
 
 ```{r}
 st_louis_centroide <- sf::st_as_sf(
-  data.frame(x=c(333310,339601),y=c(7644145,7649149)), coords = c("x","y"), crs = 2975) %>% 
+  # data.frame(x=c(333310,339601),y=c(7644145,7649149)), coords = c("x","y"), crs = 2975) %>% 
+  data.frame(x=337100,y=7646600), coords = c("x","y"), crs = 2975) %>% 
   sf::st_as_sfc()
-dataGrid <- sf::st_make_grid(st_louis_centroide, cellsize = 1000, what = "centers") 
+
+buffer <- sf::st_buffer(st_louis_centroide, dist = 10000,endCapStyle = "SQUARE")
+```
+
+```{r}
+inter_buffer <- sf::st_within(
+  reunion_sf, st_louis_area
+)
+st_louis_area <- reunion_sf %>% filter(lengths(inter_buffer)>0)
+nrow(st_louis_area)
+```
+
+```{r}
+st_louis_raster_Ind <- rasterFromXYZ(
+  xyz = st_louis_area %>% sf::st_drop_geometry() %>% dplyr::select(x,y,starts_with("Ind")) %>% 
+    arrange(x,y)
+)
+st_louis_raster_Ind[is.na(st_louis_raster_Ind)] <- 0
+plot(st_louis_raster_Ind)
 ```
 
 
+```{r}
+kwd_st_louis_ind <- compareOneToMany(
+  st_louis_raster_Ind %>% coordinates(), 
+  st_louis_raster_Ind %>% values(), 
+  recode = TRUE
+)
+kwd_st_louis_ind$distance
+```
 
+```{r}
+hell_st_louis_ind <- hellinger(
+  st_louis_raster_Ind %>% values()
+)
+hell_st_louis_ind
+```
+
+```{r}
+rmse_st_louis_ind <- rmse(
+  st_louis_raster_Ind %>% values()
+)
+rmse_st_louis_ind
+```
+
+```{r}
+tibble(
+  map = c("smooth_2km","smooth_5km","smooth_10km", "perm_alea"),
+  kwd = kwd_st_louis_ind$distance,
+  hellinger = hell_st_louis_ind,
+  rmse = rmse_st_louis_ind
+)
+```
