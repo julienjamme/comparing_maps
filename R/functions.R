@@ -46,7 +46,7 @@ rmse <- function(weights){
   if(ncol(weights) == 1){
     return(NA)
   }else{
-    sapply(1:(ncol(weights)-1),
+    sapply(2:(ncol(weights)),
            function(c){
              sqdiff <- (weights[,1]-weights[,c])^2
              return(sqrt(mean(sqdiff)))
@@ -74,7 +74,7 @@ hellinger <- function(weights){
     return(NA)
   }else{
     sum_orig <- sum(weights[,1])
-    sapply(1:(ncol(weights)-1),
+    sapply(2:(ncol(weights)),
            function(c){
              sum_dest <- sum(weights[,c])
              sqdiff <- (sqrt(weights[,1]/sum_orig)-sqrt(weights[,c]/sum_dest))^2
