@@ -133,37 +133,20 @@ aad_rel <- function(weights){
 #'   norm_sd1 = meuse.grid[,"dist"] + 10 + rnorm(nrow(meuse.grid), 0, 1)
 #' )
 #' rmeuse <- matrix_to_maps(coordinates, weights)
-#' compare_distances(rmeuse)
-compare_distances <- function(raster_map){
-  
-  res <- list()
-  map_names <- raster_map@data@names
-  # na_vals <- values(rmeuse)[,1] %>% is.na()
-  # coords <- rmeuse %>% coordinates()
-  
-  test <- apply(values(raster_map), 1, function(r) sum(is.na(r)))
-  
-  if(sum(test > 0 & test != length(map_names)) > 0){
-    raster_map <- reclassify(raster_map, cbind(NA, 0))
-  }
+#' compare_distances(coordinates, weights)
+compare_distances <- function(coordinates, weights){
   
   res[["kwd"]] <- SpatialKWD::compareOneToMany(
-    coordinates(raster_map),
-    values(raster_map),
+    coordinates,
+    weights,
     recode = TRUE
   )$distance
 
-  res[["Hellinger"]] <- hellinger(
-    raster_map %>% values() %>% na.omit()
-  )
+  res[["Hellinger"]] <- hellinger(weights)
   
-  res[["rmse"]] <- rmse(
-    raster_map %>% values() %>% na.omit()
-  )
+  res[["rmse"]] <- rmse(weights)
   
-  res[["raad"]] <- aad_rel(
-    raster_map %>% values() %>% na.omit()
-  )
+  res[["raad"]] <- aad_rel(weights)
   
   purrr::imap_dfr(
     res,
@@ -174,7 +157,6 @@ compare_distances <- function(raster_map){
       )
     } 
   )
-  
 }
 
 
