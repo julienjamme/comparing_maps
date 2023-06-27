@@ -136,9 +136,10 @@ aad_rel <- function(weights){
 #' compare_distances(coordinates, weights)
 compare_distances <- function(coordinates, weights){
   
+  map_names <- names(as.data.frame(weights))
   res[["kwd"]] <- SpatialKWD::compareOneToMany(
-    coordinates,
-    weights,
+    as.matrix(coordinates),
+    as.matrix(weights),
     recode = TRUE
   )$distance
 

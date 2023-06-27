@@ -50,9 +50,6 @@ shift_weight <- function(coordinates, weights, type = "horizontal", shift = 1){
 ```
 
 
-
-
-
 ## `CompareOneToOne()`
 
 This function lets compare a distribution with one another.

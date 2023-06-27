@@ -28,6 +28,7 @@ library(SpatialKWD)
 
 
 source("R/functions.R", encoding = "UTF-8")
+set.seed(1234)
 ```
 
 ```{r}
@@ -42,7 +43,6 @@ str(reunion_coords)
 ```
 
 ```{r}
-set.seed(1234)
 reunion_df <- reunion %>% 
   sf::st_drop_geometry() %>% 
   dplyr::bind_cols(as.data.frame(reunion_coords)) %>% 
@@ -85,38 +85,14 @@ reunion_raster_Ind <- rasterFromXYZ(
 reunion_raster_Ind[is.na(reunion_raster_Ind)] <- 0
 plot(reunion_raster_Ind)
 ```
-Remark: typical case where the map is full of empty cells.
+Remark: typical case where the map is full of empty cells. Here the empty cells 
+are not contained in the data.
 
 
 ```{r}
-kwd_reunion_ind <- compareOneToMany(
-  reunion_raster_Ind %>% coordinates(), 
-  reunion_raster_Ind %>% values(), 
-  recode = TRUE
-)
-kwd_reunion_ind$distance
-```
-
-```{r}
-hell_reunion_ind <- hellinger(
-  reunion_raster_Ind %>% values()
-)
-hell_reunion_ind
-```
-
-```{r}
-rmse_reunion_ind <- rmse(
-  reunion_raster_Ind %>% values()
-)
-rmse_reunion_ind
-```
-
-```{r}
-tibble(
-  map = c("smooth_2km","smooth_5km","smooth_10km", "perm_alea"),
-  kwd = kwd_reunion_ind$distance,
-  hellinger = hell_reunion_ind,
-  rmse = rmse_reunion_ind
+distances_reunion_Ind<- compare_distances(
+  coordinates = reunion_sf %>% sf::st_drop_geometry() %>% dplyr::select(x,y),
+  weights = reunion_sf %>% sf::st_drop_geometry() %>% dplyr::select(dplyr::starts_with("Ind"))
 )
 ```
 
@@ -152,33 +128,24 @@ plot(st_louis_raster_Ind)
 
 
 ```{r}
-kwd_st_louis_ind <- compareOneToMany(
-  st_louis_raster_Ind %>% coordinates(), 
-  st_louis_raster_Ind %>% values(), 
-  recode = TRUE
+df_louis_area <- st_louis_area %>% sf::st_drop_geometry()
+
+distances_st_louis <- compare_distances(
+  coordinates = df_louis_area %>% dplyr::select(x,y),
+  weights = df_louis_area %>% dplyr::select(dplyr::starts_with("Ind"))
 )
-kwd_st_louis_ind$distance
 ```
 
-```{r}
-hell_st_louis_ind <- hellinger(
-  st_louis_raster_Ind %>% values()
-)
-hell_st_louis_ind
-```
 
 ```{r}
-rmse_st_louis_ind <- rmse(
-  st_louis_raster_Ind %>% values()
-)
-rmse_st_louis_ind
+distances_reunion_Ind %>% rename(Island_val = val) %>% 
+  full_join(
+    distances_st_louis %>% rename(City_val = val)
+  )
 ```
 
-```{r}
-tibble(
-  map = c("smooth_2km","smooth_5km","smooth_10km", "perm_alea"),
-  kwd = kwd_st_louis_ind$distance,
-  hellinger = hell_st_louis_ind,
-  rmse = rmse_st_louis_ind
-)
-```
+
+## Sensitivity to the grain of the information
+
+Comparison while measuring distances from maps of 1km vs 200m grid.
+
