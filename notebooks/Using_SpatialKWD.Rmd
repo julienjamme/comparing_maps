@@ -7,6 +7,7 @@ output: html_document
 
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
+knitr::opts_knit$set(root.dir = file.path(getwd(),".."))
 ```
 
 
@@ -28,46 +29,9 @@ library(purrr)
 library(dplyr)
 library(SpatialKWD)
 library(raster)
+
+source("R/functions.R", encoding = "UTF-8")
 ```
-
-```{r}
-#' From matrix of coordinates and weights to raster maps
-#'
-#' @param coordinates matrix of coordinates (two columns and N rows) for x,y of the raster
-#' @param weights matrix of weights for the z values of the raster (at least one column and N rows)
-#' if there are several columns, all of them will be available
-#'
-#' @return raster object
-#'
-#' @examples
-matrix_to_maps <- function(coordinates, weights){
-  
-  xyz <- cbind(coordinates, weights)
-  r <- rasterFromXYZ(xyz = xyz)
-  
-}
-```
-
-
-```{r}
-#' Compute the RMSE where between one reference and several estimates
-#'
-#' @param weights : first col is the reference
-#'
-#' @return vector of rmses between the frst column and each of the others
-#'
-#' @examples
-rmse <- function(weights){
-  
-  sapply(1:(ncol(weights)-1),
-         function(c){
-           sqdiff <- (weights[,1]-weights[,c])^2
-           return(sqrt(mean(sqdiff)))
-         }
-  )
-}
-```
-
 
 ```{r}
 shift_weight <- function(coordinates, weights, type = "horizontal", shift = 1){
@@ -85,13 +49,7 @@ shift_weight <- function(coordinates, weights, type = "horizontal", shift = 1){
 }
 ```
 
-```{r}
-from_matrix_to_column <- function(mat){
-  
-  purrr::reduce(mat, rbind)
-  
-}
-```
+
 
 
 
@@ -170,6 +128,11 @@ kwd_rn$distance
 ```
 
 ```{r}
+hellinger_rn <- hellinger(weights)
+hellinger_rn
+```
+
+```{r}
 rmse_rn <- rmse(weights)
 rmse_rn
 ```
@@ -190,6 +153,11 @@ matrix_to_maps(coordinates, weights) |> plot()
 ```{r}
 kwd_id <- compareOneToOne(coordinates, weights, verbosity = "silent")
 kwd_id$distance
+```
+
+```{r}
+hellinger_id <- hellinger(weights)
+hellinger_id
 ```
 
 ```{r}
@@ -239,6 +207,11 @@ kwd_sv$distance
 ```
 
 ```{r}
+hellinger_sv <- hellinger(weights)
+hellinger_sv
+```
+
+```{r}
 rmse_sv <- rmse(weights)
 rmse_sv
 ```
@@ -269,6 +242,11 @@ kwd_ch$distance
 ```
 
 ```{r}
+hellinger_ch <- hellinger(weights)
+hellinger_ch
+```
+
+```{r}
 rmse_ch <- rmse(weights)
 rmse_ch
 ```
@@ -279,35 +257,17 @@ rmse_ch
 vs <- c(0.25,0.75)
 b1 <- matrix(vs[1], ncol = 1, nrow = 1)
 b2 <- matrix(vs[2], ncol = 1, nrow = 1)
-w1 <- rbind(
-  cbind(b1,b2,b1,b2,b1,b2,b1,b2,b1,b2),
-  cbind(b2,b1,b2,b1,b2,b1,b2,b1,b2,b1),
-  cbind(b1,b2,b1,b2,b1,b2,b1,b2,b1,b2),
-  cbind(b2,b1,b2,b1,b2,b1,b2,b1,b2,b1),
-  cbind(b1,b2,b1,b2,b1,b2,b1,b2,b1,b2),
-  cbind(b2,b1,b2,b1,b2,b1,b2,b1,b2,b1),
-  cbind(b1,b2,b1,b2,b1,b2,b1,b2,b1,b2),
-  cbind(b2,b1,b2,b1,b2,b1,b2,b1,b2,b1),
-  cbind(b1,b2,b1,b2,b1,b2,b1,b2,b1,b2),
-  cbind(b2,b1,b2,b1,b2,b1,b2,b1,b2,b1)
-)
-w2 <- rbind(
-  cbind(b2,b1,b2,b1,b2,b1,b2,b1,b2,b1),
-  cbind(b1,b2,b1,b2,b1,b2,b1,b2,b1,b2),
-  cbind(b2,b1,b2,b1,b2,b1,b2,b1,b2,b1),
-  cbind(b1,b2,b1,b2,b1,b2,b1,b2,b1,b2),
-  cbind(b2,b1,b2,b1,b2,b1,b2,b1,b2,b1),
-  cbind(b1,b2,b1,b2,b1,b2,b1,b2,b1,b2),
-  cbind(b2,b1,b2,b1,b2,b1,b2,b1,b2,b1),
-  cbind(b1,b2,b1,b2,b1,b2,b1,b2,b1,b2),
-  cbind(b2,b1,b2,b1,b2,b1,b2,b1,b2,b1),
-  cbind(b1,b2,b1,b2,b1,b2,b1,b2,b1,b2)
-)
+
+w1 <- matrix(rep(c(b1, b2), 50), nrow=9, ncol=9, byrow = TRUE)
+w2 <- matrix(rep(c(b2, b1), 50), nrow=9, ncol=9, byrow = TRUE)
+
 
 weights <- cbind(
   from_matrix_to_column(w1),
   from_matrix_to_column(w2)
 )
+
+coordinates <- as.matrix(expand.grid(X=1:9, Y=1:9))
 ```
 
 ```{r}
@@ -320,16 +280,70 @@ kwd_ch2$distance
 ```
 
 ```{r}
+hellinger_ch2 <- hellinger(weights)
+hellinger_ch2
+```
+
+```{r}
 rmse_ch2 <- rmse(weights)
 rmse_ch2
 ```
 
-#### Autocorrelated information
+
+## Sensitivity to NA/empty values
+
+```{r}
+vs <- c(NA,0.75)
+b1 <- matrix(vs[1], ncol = 1, nrow = 1)
+b2 <- matrix(vs[2], ncol = 1, nrow = 1)
+
+w1 <- matrix(rep(c(b1, b2), 50), nrow=9, ncol=9, byrow = TRUE)
+w2 <- matrix(rep(c(b2, b1), 50), nrow=9, ncol=9, byrow = TRUE)
+
+
+weights <- cbind(
+  from_matrix_to_column(w1),
+  from_matrix_to_column(w2)
+)
+
+coordinates <- as.matrix(expand.grid(X=1:9, Y=1:9))
+```
+
+```{r}
+matrix_to_maps(coordinates, weights) |> plot()
+```
+
+```{r}
+kwd_na <- compareOneToOne(coordinates, weights)
+kwd_na$distance
+```
+
+Distance is null. The presence of NA values seems to perturb the computation of the distance.
+
+### NA to zeros
+
+```{r}
+weights[is.na(weights)] <- 0
+```
+
+```{r}
+matrix_to_maps(coordinates, weights) |> plot()
+```
+
+```{r}
+kwd_zeros <- compareOneToOne(coordinates, weights, verbosity = "silent")
+kwd_zeros$distance
+```
+
+## Work on autocorrelated data: the Meuse data
 
 ```{r}
 data(meuse.grid, package = "sp")
 dim(meuse.grid)
 ```
+
+
+### Sensitivity to injection of noise in the data
 
 ```{r}
 set.seed(4081789)
@@ -344,6 +358,7 @@ weights <- cbind(
 )
 ```
 
+Remark: the +10 operation is to ensure the values remains positive.
 
 ```{r}
 matrix_to_maps(coordinates, weights) |> plot()
@@ -352,6 +367,11 @@ matrix_to_maps(coordinates, weights) |> plot()
 ```{r}
 kwd_autocorr <- compareOneToMany(coordinates, weights, recode = TRUE)
 kwd_autocorr
+```
+
+```{r}
+hellinger_autocorr <- hellinger(weights)
+hellinger_autocorr
 ```
 
 ```{r}
@@ -375,40 +395,92 @@ tibble(
 ```
 
 
-#### Autocorrelated information 2
+### Sensitivity to the magnitude
+
+We compare two maps different only on the magnitude of the cell values: map2 is 
+like map1 + A or like map1*B.
 
 ```{r}
-set.seed(4081789)
-coordinates <- as.matrix(meuse.grid[,1:2])
-weights <- cbind(
-  meuse.grid[,"dist"] + 10,
-  meuse.grid[,"dist"] + 10 + rnorm(nrow(meuse.grid), 0, 0.001),
-  meuse.grid[,"dist"] + 10 + rnorm(nrow(meuse.grid), 0, 0.01),
-  meuse.grid[,"dist"] + 10 + rnorm(nrow(meuse.grid), 0, 0.1),
-  meuse.grid[,"dist"] + 10 + rnorm(nrow(meuse.grid), 0, 0.5),
-  meuse.grid[,"dist"] + 10 + rnorm(nrow(meuse.grid), 0, 1)
-)
+summary(meuse.grid[,"dist"])
 ```
 
 ```{r}
-r_meuse <- rasterFromXYZ(meuse.grid[, c("x","y","dist")])
-nrow(r_meuse) <- ncol(r_meuse)
-r_meuse_flip1 <- flip(r_meuse, direction = 1)
-r_meuse_flip2 <- flip(r_meuse, direction = 2)
+mean_dist <- mean(meuse.grid[,"dist"])
+```
 
-s_meuse <- stack(r_meuse, r_meuse_flip1, r_meuse_flip2)
-plot(s_meuse)
+#### translation of the distribution
 
-coordinates <- coordinates(s_meuse)
-weights <- cbind(
-  values(s_meuse$dist.1),
-  values(s_meuse$dist.2),
-  values(s_meuse$dist.3)
-)
+Map2 = Map1 + A
+
+```{r}
+coordinates <- as.matrix(meuse.grid[,1:2])
+weights <- purrr::map(
+  c(0,1,2,10,100,1000),
+  function(a)  meuse.grid[,"dist"] + a*mean_dist
+) %>% purrr::reduce(cbind)
+```
+
+```{r}
 matrix_to_maps(coordinates, weights) |> plot()
 ```
 
 ```{r}
-compareOneToMany(coordinates, weights, recode = TRUE)
+kwd_magn <- compareOneToMany(coordinates, weights)
+kwd_magn$distance
 ```
+
+```{r}
+hellinger_magn <- hellinger(weights)
+hellinger_magn
+```
+
+```{r}
+rmse_magn <- rmse(weights)
+rmse_magn
+```
+
+#### Homothetic transformation of the distribution
+
+Map2 = Map1 * B
+
+
+```{r}
+coordinates <- as.matrix(meuse.grid[,1:2])
+weights <- purrr::map(
+  c(1/mean_dist,1,2,10,100,1000),
+  function(a)  meuse.grid[,"dist"] * a*mean_dist
+) %>% purrr::reduce(cbind)
+```
+
+```{r}
+matrix_to_maps(coordinates, weights) |> plot()
+```
+
+```{r}
+kwd_hom <- compareOneToMany(coordinates, weights)
+kwd_hom$distance
+```
+
+```{r}
+hellinger_hom <- hellinger(weights)
+hellinger_hom
+```
+
+```{r}
+rmse_hom <- rmse(weights)
+rmse_hom
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
 

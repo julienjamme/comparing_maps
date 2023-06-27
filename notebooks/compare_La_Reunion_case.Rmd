@@ -1,5 +1,5 @@
 ----
-title: "Using SpatialKWD package"
+title: "Comparing Maps: Some examples with the island of La Réunion"
 author: "Julien Jamme"
 date: "2023-04-13"
 output: html_document
@@ -13,14 +13,8 @@ knitr::opts_knit$set(root.dir = file.path(getwd(),".."))
 
 ## Objectives
 
-- Learn how to use the functions within the `SpatialKWD` package
-- How the KWD measure reacts to different kinds of compared maps
-- How different from a standard measure is the KWD measure when comparing maps ?
-
-- Learn about the time computation : How big can be the maps to compare them in a realistic time  ?
-- L = 2/L=3/L=10 => how does this parameter influence the quality of the measure and the computation's time ?
-
-
+- How does the KWD measure react to different types of maps to compare ?
+- How different from a standard measure is the KWD when comparing maps ?
 
 ```{r}
 if(! "SpatialKWD" %in% installed.packages()[,1]) install.packages("SpatialKWD")
@@ -34,10 +28,6 @@ library(SpatialKWD)
 
 
 source("R/functions.R", encoding = "UTF-8")
-```
-
-```{r}
-
 ```
 
 ```{r}
@@ -68,17 +58,20 @@ reunion_df_sm_10km <- reunion_df %>% dplyr::select(-1) %>%
   btb::btb_smooth(sEPSG = "2975", iCellSize = 1000, iBandwidth = 10000, inspire = TRUE) %>% 
   rename_with(~paste0(.,"_sm10km"), c("Ind","Men_pauv"))
 
-reunion_sf <- purrr::reduce(
-  list(reunion_df_sm_2km, reunion_df_sm_5km[,-c(1:2)], reunion_df_sm_10km[,-c(1:2)]),
-  sf::st_join,
-) %>% full_join(
+reunion_sf <- reunion_df_sm_2km %>% sf::st_drop_geometry() %>%  
+  full_join(reunion_df_sm_5km %>% sf::st_drop_geometry(), by = c("x","y")) %>% 
+  full_join(reunion_df_sm_10km, by = c("x","y")) %>% 
+  sf::st_as_sf() %>% 
+  full_join(
   reunion_df %>% dplyr::select(-x,-y) %>% 
     mutate(across(.cols = Ind:Men_pauv, ~sample(.), .names = "{.col}_perm")),
   by = c("idInspire" = "Idcar_1km")
   ) %>% 
-  mutate(across(matches("(^Ind|^Men)", perl = TRUE), ~ifelse(is.na(.), 0, .))) %>% 
+  mutate(across(matches("(^Ind|^Men)", perl = TRUE), ~ifelse(is.na(.), 0, .)))%>% 
   dplyr::relocate(Ind, Men_pauv, .after = y)
 
+plot(reunion_sf %>% sf::st_geometry())
+summary(reunion_sf)
 reunion_sf %>% str()
 ```
 
@@ -127,7 +120,6 @@ tibble(
 )
 ```
 
-Remark: Unexpected result for kwd while going from 2km to 5km bandwidth.
 
 ## Working with a city map
 
@@ -143,7 +135,7 @@ buffer <- sf::st_buffer(st_louis_centroide, dist = 10000,endCapStyle = "SQUARE")
 
 ```{r}
 inter_buffer <- sf::st_within(
-  reunion_sf, st_louis_area
+  reunion_sf, buffer
 )
 st_louis_area <- reunion_sf %>% filter(lengths(inter_buffer)>0)
 nrow(st_louis_area)
