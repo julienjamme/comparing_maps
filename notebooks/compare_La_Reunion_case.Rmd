@@ -42,6 +42,16 @@ reunion_coords <- from_INSPIRE_to_xy(reunion$Idcar_1km, crs = "2975", res = "100
 str(reunion_coords)
 ```
 
+
+## Smoothing data
+
+To compute the smoothed values, we use the `btb` package that implements a smoothing function 
+containing a side effect correction to take into account the presence of borders 
+(separation between empty spaces et non-empty spaces). When the bandwidth becomes high, 
+the correction is not perfect. The package is available on the Cran, presented 
+[here](https://inseefr.github.io/btb/) and in the 
+[Handbook of Spatial Analysis, chapter 8](https://www.insee.fr/en/information/3635545)
+
 ```{r}
 reunion_df <- reunion %>% 
   sf::st_drop_geometry() %>% 
@@ -90,10 +100,23 @@ are not contained in the data.
 
 
 ```{r}
-distances_reunion_Ind<- compare_distances(
+(distances_reunion_Ind<- compare_distances(
   coordinates = reunion_sf %>% sf::st_drop_geometry() %>% dplyr::select(x,y),
   weights = reunion_sf %>% sf::st_drop_geometry() %>% dplyr::select(dplyr::starts_with("Ind"))
-)
+))
+```
+
+```{r}
+distances_reunion_Ind %>%
+  filter(map != "Ind_perm") %>% 
+  filter(distance %in% c("kwd","Hellinger")) %>% 
+  mutate(bw = as.numeric(gsub("\\D", "", map))) %>% 
+  ggplot(aes(x=bw, y = val, color = distance)) +
+  geom_line() +
+  geom_point() +
+  # scale_x_log10("sd (log-10 scale)") +
+  # scale_y_log10("dist (log-10 scale)") +
+  theme_minimal()
 ```
 
 

@@ -33,11 +33,11 @@ from_INSPIRE_to_xy <- function(inspire_coords, crs = "3035", res = "1000m"){
 from_matrix_to_column <- function(mat) purrr::reduce(mat, rbind)
 
 
-#' Compute the RMSE between one reference and several estimates
+#' Compute the euclidean distance between one reference and several estimates
 #'
 #' @param weights : first col is the reference
 #'
-#' @return vector of rmses measured between the first column as reference and
+#' @return vector of Euclidean Distances measured between the first column as reference and
 #'  each of the others
 #'
 #' @examples
@@ -47,7 +47,7 @@ from_matrix_to_column <- function(mat) purrr::reduce(mat, rbind)
 #'   meuse.grid[,"dist"] + 10 + rnorm(nrow(meuse.grid), 0, 1)
 #' )
 #' rmse(weights)
-rmse <- function(weights){
+euclid <- function(weights){
   if(ncol(weights) == 1){
     return(NA)
   }else{
@@ -110,7 +110,7 @@ aad_rel <- function(weights){
     weights_no_empty <- weights[weights[,1] != 0,]
     sapply(2:(ncol(weights_no_empty)),
            function(c){
-             diff <- abs(weights_no_empty[,1]-weights_no_empty[,c])/weights_no_empty[,c]
+             diff <- abs(weights_no_empty[,1]-weights_no_empty[,c])/weights_no_empty[,1]
              return(mean(diff))
            }
     )
@@ -135,28 +135,34 @@ aad_rel <- function(weights){
 #' rmeuse <- matrix_to_maps(coordinates, weights)
 #' compare_distances(coordinates, weights)
 compare_distances <- function(coordinates, weights){
+  require(SpatialKWD)
+  require(tibble)
+  
+  res <- list()
   
   map_names <- names(as.data.frame(weights))
-  res[["kwd"]] <- SpatialKWD::compareOneToMany(
+  kwd <- SpatialKWD::compareOneToMany(
     as.matrix(coordinates),
     as.matrix(weights),
     recode = TRUE
-  )$distance
+  )
+  
+  res[["kwd"]] <- kwd$distance
 
   res[["Hellinger"]] <- hellinger(weights)
   
-  res[["rmse"]] <- rmse(weights)
+  res[["euclid"]] <- euclid(weights)
   
-  res[["raad"]] <- aad_rel(weights)
+  res[["aard"]] <- aad_rel(weights)
   
   purrr::imap_dfr(
     res,
     function(v, n){
-      tibble(distance = n, 
+      tibble(distance = n,
              map = map_names[-1],
              val = v
       )
-    } 
+    }
   )
 }
 

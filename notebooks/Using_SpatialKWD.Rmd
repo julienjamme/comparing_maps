@@ -6,7 +6,7 @@ output: html_document
 ---
 
 ```{r setup, include=FALSE}
-knitr::opts_chunk$set(echo = TRUE)
+knitr::opts_chunk$set(echo = TRUE, fig.width=8, fig.height=8)
 knitr::opts_knit$set(root.dir = file.path(getwd(),".."))
 ```
 
@@ -18,7 +18,7 @@ knitr::opts_knit$set(root.dir = file.path(getwd(),".."))
 - How different from a standard measure is the KWD measure when comparing maps ?
 
 - Learn about the time computation : How big can be the maps to compare them in a realistic time  ?
-- L = 2/L=3/L=10 => how does this paramter influence the quality of the measure and the computation's time ?
+- L = 2/L=3/L=10 => how does this parameter influence the quality of the measure and the computation's time ?
 
 
 
@@ -49,6 +49,15 @@ shift_weight <- function(coordinates, weights, type = "horizontal", shift = 1){
 }
 ```
 
+To compare with several other distances, we use:
+
+- The Hellinger Distance between two maps $\mathbf{X}$ and $\mathbf{X}'$ viewed as tables of $n$ cells is defined as $$HD(\mathbf{X}, \mathbf{X}') = \frac{1}{\sqrt{2}} \sqrt{\sum_{i = 1}^n \left(\sqrt{\frac{x'_i}{\sum_{i=1}^n x'_i}} - \sqrt{\frac{x_i}{\sum_{i=1}^n x_i}}\right)^2}$$,
+
+- The Average of absolute relative differences between $X$ and $X'$:
+$$AARD(\mathbf{X}, \mathbf{X}') = \frac{1}{\sum_{i=1}^n\mathbb{1}(x_i \neq 0)} \sum_{i = 1, x_i \neq 0}^n \left(\frac{|x'_i - x_i|}{x_i}\right)$$
+- The Euclidean Distance between $X$ and $X'$:
+$$EUCL(\mathbf{X}, \mathbf{X}') = \frac{1}{n} \sum_{i = 1}^n \left(x'_i - x_i\right)^2$$
+
 
 ## `CompareOneToOne()`
 
@@ -78,12 +87,13 @@ matrix_to_maps(coordinates, test1) |> plot()
 d_OTO <- compareOneToOne(
   coordinates, Weights=test1, 
   L = 2,
-  method="approx",recode=TRUE, 
+  method="approx",
+  recode=TRUE, 
 )
 ```
 
 ```{r}
-rmse(test1)
+euclid(test1)
 ```
 
 
@@ -119,19 +129,13 @@ weights <- matrix(runif(2*N, 0, 1), ncol=2, nrow=N)
 matrix_to_maps(coordinates, weights) |> plot()
 ```
 
-```{r}
-kwd_rn <- compareOneToOne(coordinates, weights, verbosity = "silent")
-kwd_rn$distance
-```
+The `compare_distances` function computes the KW distance and its challengers at once.
+The KWD is computed with `SpatialKWD::compareOneToMany()` and with the following 
+main parameters : `L = 3`, `method = "approx"`, `recode = TRUE`.
+
 
 ```{r}
-hellinger_rn <- hellinger(weights)
-hellinger_rn
-```
-
-```{r}
-rmse_rn <- rmse(weights)
-rmse_rn
+(distances_rn <- compare_distances(coordinates, weights))
 ```
 
 #### Two identical maps
@@ -148,25 +152,16 @@ matrix_to_maps(coordinates, weights) |> plot()
 ```
 
 ```{r}
-kwd_id <- compareOneToOne(coordinates, weights, verbosity = "silent")
-kwd_id$distance
+(distances_id <- compare_distances(coordinates, weights))
 ```
 
-```{r}
-hellinger_id <- hellinger(weights)
-hellinger_id
-```
-
-```{r}
-rmse_id <- rmse(weights)
-rmse_id
-```
 
 #### Two horizontal shifted maps
 
 ```{r}
 set.seed(4081789)
 weights <- matrix(runif(N, 0, 1), ncol=1, nrow=N)
+colnames(weights) = "orig"
 weights <- shift_weight(coordinates, weights)
 ```
 
@@ -176,13 +171,7 @@ matrix_to_maps(coordinates, weights) |> plot()
 ```
 
 ```{r}
-kwd_sh <- compareOneToOne(coordinates, weights, verbosity = "silent")
-kwd_sh$distance
-```
-
-```{r}
-rmse_sh <- rmse(weights)
-rmse_sh
+(distances_sh <- compare_distances(coordinates, weights))
 ```
 
 #### Two vertical shifted maps
@@ -199,18 +188,7 @@ matrix_to_maps(coordinates, weights) |> plot()
 ```
 
 ```{r}
-kwd_sv <- compareOneToOne(coordinates, weights, verbosity = "silent")
-kwd_sv$distance
-```
-
-```{r}
-hellinger_sv <- hellinger(weights)
-hellinger_sv
-```
-
-```{r}
-rmse_sv <- rmse(weights)
-rmse_sv
+(distances_sv <- compare_distances(coordinates, weights))
 ```
 
 
@@ -234,18 +212,7 @@ matrix_to_maps(coordinates, weights) |> plot()
 ```
 
 ```{r}
-kwd_ch <- compareOneToOne(coordinates, weights, verbosity = "silent")
-kwd_ch$distance
-```
-
-```{r}
-hellinger_ch <- hellinger(weights)
-hellinger_ch
-```
-
-```{r}
-rmse_ch <- rmse(weights)
-rmse_ch
+(distances_ch <- compare_distances(coordinates, weights))
 ```
 
 #### Chessboard maps 2
@@ -272,18 +239,7 @@ matrix_to_maps(coordinates, weights) |> plot()
 ```
 
 ```{r}
-kwd_ch2 <- compareOneToOne(coordinates, weights, verbosity = "silent")
-kwd_ch2$distance
-```
-
-```{r}
-hellinger_ch2 <- hellinger(weights)
-hellinger_ch2
-```
-
-```{r}
-rmse_ch2 <- rmse(weights)
-rmse_ch2
+(distances_ch2 <- compare_distances(coordinates, weights))
 ```
 
 
@@ -311,8 +267,7 @@ matrix_to_maps(coordinates, weights) |> plot()
 ```
 
 ```{r}
-kwd_na <- compareOneToOne(coordinates, weights)
-kwd_na$distance
+(distances_na <- compare_distances(coordinates, weights))
 ```
 
 Distance is null. The presence of NA values seems to perturb the computation of the distance.
@@ -328,8 +283,7 @@ matrix_to_maps(coordinates, weights) |> plot()
 ```
 
 ```{r}
-kwd_zeros <- compareOneToOne(coordinates, weights, verbosity = "silent")
-kwd_zeros$distance
+(distances_zeros <- compare_distances(coordinates, weights))
 ```
 
 ## Work on autocorrelated data: the Meuse data
@@ -345,49 +299,33 @@ dim(meuse.grid)
 ```{r}
 set.seed(4081789)
 coordinates <- as.matrix(meuse.grid[,1:2])
-weights <- cbind(
-  meuse.grid[,"dist"] + 10,
-  meuse.grid[,"dist"] + 10 + rnorm(nrow(meuse.grid), 0, 0.001),
-  meuse.grid[,"dist"] + 10 + rnorm(nrow(meuse.grid), 0, 0.01),
-  meuse.grid[,"dist"] + 10 + rnorm(nrow(meuse.grid), 0, 0.1),
-  meuse.grid[,"dist"] + 10 + rnorm(nrow(meuse.grid), 0, 0.5),
-  meuse.grid[,"dist"] + 10 + rnorm(nrow(meuse.grid), 0, 1)
-)
+sds <- c(0,0.001,0.01,0.1,0.5,1)
+weights <- purrr::map(
+  sds,
+  function(sd)  meuse.grid[,"dist"] + 10 + rnorm(nrow(meuse.grid), 0, sd)
+) %>% purrr::reduce(cbind) 
+colnames(weights) <- paste0("sd=",sds)
 ```
 
-Remark: the +10 operation is to ensure the values remains positive.
+Remark: the +10 operation is to ensure the values remain positive.
 
 ```{r}
 matrix_to_maps(coordinates, weights) |> plot()
 ```
 
 ```{r}
-kwd_autocorr <- compareOneToMany(coordinates, weights, recode = TRUE)
-kwd_autocorr
-```
-
-```{r}
-hellinger_autocorr <- hellinger(weights)
-hellinger_autocorr
-```
-
-```{r}
-rmse_autocorr <- rmse(weights)
-rmse_autocorr
+(distances_autocorr <- compare_distances(coordinates, weights))
 ```
 
 
 ```{r}
-tibble(
-  sd = c(0.001,0.01,0.1, 0.5, 1),
-  kwd = kwd_autocorr$distance,
-  rmse = rmse_autocorr
-) %>%
-  tidyr::pivot_longer( cols = c("kwd", "rmse"), names_to = "measure", values_to = "val") %>% 
-  ggplot(aes(x=sd, y = val, color = measure)) +
+distances_autocorr %>%
+  mutate(sd = as.numeric(gsub("sd=","",map))) %>% 
+  ggplot(aes(x=sd, y = val, color = distance)) +
   geom_line() +
   geom_point() +
   scale_x_log10("sd (log-10 scale)") +
+  scale_y_log10("dist (log-10 scale)") +
   theme_minimal()
 ```
 
@@ -415,6 +353,7 @@ weights <- purrr::map(
   c(0,1,2,10,100,1000),
   function(a)  meuse.grid[,"dist"] + a*mean_dist
 ) %>% purrr::reduce(cbind)
+colnames(weights) <- paste0("a=",c(0,1,2,10,100,1000))
 ```
 
 ```{r}
@@ -422,18 +361,18 @@ matrix_to_maps(coordinates, weights) |> plot()
 ```
 
 ```{r}
-kwd_magn <- compareOneToMany(coordinates, weights)
-kwd_magn$distance
+(distances_trans <- compare_distances(coordinates, weights))
 ```
 
 ```{r}
-hellinger_magn <- hellinger(weights)
-hellinger_magn
-```
-
-```{r}
-rmse_magn <- rmse(weights)
-rmse_magn
+distances_trans %>%
+  mutate(a = as.numeric(gsub("a=","",map))) %>% 
+  ggplot(aes(x=a, y = val, color = distance)) +
+  geom_line() +
+  geom_point() +
+  scale_x_log10("sd (log-10 scale)") +
+  scale_y_log10("dist (log-10 scale)") +
+  theme_minimal()
 ```
 
 #### Homothetic transformation of the distribution
@@ -447,27 +386,18 @@ weights <- purrr::map(
   c(1/mean_dist,1,2,10,100,1000),
   function(a)  meuse.grid[,"dist"] * a*mean_dist
 ) %>% purrr::reduce(cbind)
+colnames(weights) <- paste0("a=", c(0,1,2,10,100,1000),"*mean")
 ```
 
 ```{r}
-matrix_to_maps(coordinates, weights) |> plot()
+(distances_hom <- compare_distances(coordinates, weights))
 ```
 
-```{r}
-kwd_hom <- compareOneToMany(coordinates, weights)
-kwd_hom$distance
-```
 
-```{r}
-hellinger_hom <- hellinger(weights)
-hellinger_hom
-```
+## TODO
 
-```{r}
-rmse_hom <- rmse(weights)
-rmse_hom
-```
-
+- test the effect of the L values
+- compare different scales of the map
 
 
 
