@@ -21,7 +21,7 @@ epsg <- stringr::str_extract(wkt$wkt, "EPSG\",[1-9]*]]$") %>%
   gsub(pattern = "]]", replacement = "")
 
 pop_200m <- pop_grid_200m_sf %>%
-  select(IdInspire = Idcar_200m, Idcar_1km, Ind)
+  select(IdInspire = Idcar_200m, Idcar_1km, Ind, Men)
 #   mutate(
 #     x_sw = as.integer(gsub("E","",stringr::str_extract_all(IdInspire, "E[0-9]*$", simplify = TRUE))),
 #     y_sw = as.integer(gsub("(N|E)","",stringr::str_extract_all(IdInspire, "N[0-9]*E", simplify = TRUE)))
@@ -35,21 +35,21 @@ pop_200m <- pop_grid_200m_sf %>%
 #   )
 
 ggplot(pop_200m) +
-  geom_sf(aes(fill = Ind), color = NA) +
+  geom_sf(aes(fill = Men), color = NA) +
   scale_color_viridis_c(alpha = 0.75)
 
 
-ind_200m <- pop_200m %>% 
+hh_200m <- pop_200m %>% 
   sf::st_drop_geometry() %>% 
-  select(IdInspire, Ind) %>% 
-  mutate(Ind = round(Ind)) %>% 
+  select(IdInspire, Men) %>% 
+  mutate(Men = round(Men)) %>% 
   as.data.table()
 
-ind_200m <- ind_200m[rep(seq(.N), Ind), ]
-ind_200m[, id := 1:.N]
-nrow(ind_200m) == sum(round(pop_200m$Ind))
+hh_200m <- hh_200m[rep(seq(.N), Men), ]
+hh_200m[, id := 1:.N]
+nrow(hh_200m) == sum(round(pop_200m$Men))
 
-ind_200m <- ind_200m %>% 
+hh_200m <- hh_200m %>% 
   left_join(
     centroides %>% 
       select(IdInspire = Idcar_200m, Idcar_1km) %>%
@@ -66,31 +66,28 @@ ind_200m <- ind_200m %>%
       ),
     by = "IdInspire"
   ) %>% 
-  sf::st_as_sf(geometry = "geom")
+  sf::st_as_sf(coords = c("x_centr", "y_centr"))
+str(hh_200m)
 
-str(ind_200m)
-
-
-
-r <- raster::raster(
-  xmn = min(pop_200m$x_sw), xmx = max(pop_200m$x_sw + 200),
-  ymn = min(pop_200m$y_sw), ymx = max(pop_200m$y_sw + 200),
-  res = 200,
-  crs = wkt
+hh_200m_raster <- sdcSpatial::sdc_raster(
+  hh_200m,
+  variable = 1,
+  r = 200,
+  min_count = 11,
+  max_risk = 1
 )
 
-pop_200m_raster <- sdcSpatial::sdc_raster(
-  ind_200m,
-  r         = 200
-)
-plot(pop_200m_raster, value="sum", sensitive = FALSE)
-summary(pop_200m$Ind)
-table(pop_200m$Ind < 2)
+plot(hh_200m_raster, value="sum", sensitive = FALSE)
+summary(pop_200m$Men)
+table(pop_200m$Men < 10)
 
 pal <- rev(viridis(10))
-plot(pop_200m_raster, col = pal)
+plot(hh_200m_raster, value = "sum", col = pal)
 
 
-raster_sens <- is_sensitive(pop_200m_raster)
-
-
+# quadtree
+hh_200m_qt <- protect_quadtree(hh_200m_raster)
+col <- c("#FDE333", "#BBDD38", "#6CD05E", "#00BE7D", "#00A890"
+         , "#008E98",  "#007094", "#185086", "#422C70", "#4B0055")
+plot(hh_200m_raster, "sum", col=col)
+plot(hh_200m_qt, "sum", col=col)
