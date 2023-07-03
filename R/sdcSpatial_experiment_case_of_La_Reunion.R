@@ -24,7 +24,7 @@ epsg <- stringr::str_extract(wkt$wkt, "EPSG\",[1-9]*]]$") %>%
   gsub(pattern = "]]", replacement = "")
 
 pop_200m <- pop_grid_200m_sf %>%
-  select(IdInspire = Idcar_200m, Idcar_1km, Ind, Men)
+  select(IdInspire = Idcar_200m, Idcar_1km, Ind, Men, Ind_snv)
 #   mutate(
 #     x_sw = as.integer(gsub("E","",stringr::str_extract_all(IdInspire, "E[0-9]*$", simplify = TRUE))),
 #     y_sw = as.integer(gsub("(N|E)","",stringr::str_extract_all(IdInspire, "N[0-9]*E", simplify = TRUE)))
@@ -37,17 +37,19 @@ pop_200m <- pop_grid_200m_sf %>%
 #     y_centr = Y
 #   )
 
-ggplot(pop_200m) +
-  geom_sf(aes(fill = Men), color = NA) +
-  geom_sf(data = borders_mun_sf, fill = NA) +
-  scale_color_viridis_c(alpha = 0.75)
+# ggplot(pop_200m) +
+#   geom_sf(aes(fill = Men), color = NA) +
+#   geom_sf(data = borders_mun_sf, fill = NA) +
+#   scale_color_viridis_c(alpha = 0.75)
 
 
-qt <- quantile(pop_200m$Men, probs = seq(0,1,0.1))
+qt <- quantile(pop_200m$Men, probs = seq(0,1,0.2))
 qt[1] <- 0
+qt_nat <- quantile(pop_grid_nat_sf$Men, probs = seq(0,1,0.2))
+qt_nat[1] <- 0
 pal <- c("#FDE333", "#BBDD38", "#6CD05E", "#00BE7D", "#00A890"
          , "#008E98",  "#007094", "#185086", "#422C70", "#4B0055")
-
+pal5 <- pal[seq(1,10,2)]
 mapview(
   borders_mun_sf,
   col.regions = NA,
@@ -60,22 +62,23 @@ mapview(
   z = c("Men"),
   at = qt,
   lwd = 0,
-  color.regions = pal,
-  alpha.regions = 0.65,
+  color.regions = pal5,
+  alpha.regions = 0.85,
   layer.name = "Households"
 ) +
   mapview(
   pop_grid_nat_sf, 
   z = c("Men"),
-  # at = qt,
+  at = qt_nat,
   lwd = 0.3,
-  color.regions = pal,
-  alpha.regions = 0.35,
+  color.regions = pal5,
+  alpha.regions = 0.85,
   na.color = NA,
   layer.name = "Natural Level"
 )
-#The quadtree is very sensitive to the "origin of the grid"
-#Side effect of quadtree method applied on Inspire nested grid layers (200m,1km,2km,etc.)
+#The quadtree is very sensitive to the structure of the grid
+#Side effect of quadtree method applied on Inspire nested grid layers
+#(200m,1km,2km,etc.).
 
 
 summary(pop_200m$Men)
@@ -122,17 +125,17 @@ hh_200m_raster <- sdcSpatial::sdc_raster(
 plot(hh_200m_raster, "count", col=pal, alpha = 0.85)
 
 # Sensitivity
-sensitivity_score(hh_200m_raster)
+sdcSpatial::sensitivity_score(hh_200m_raster)
 prop.table(table(ceiling(pop_200m$Men) < 11))
 
 # remove sensitive cells
-hh_200m_rm <- remove_sensitive(hh_200m_raster)
+hh_200m_rm <- sdcSpatial::remove_sensitive(hh_200m_raster)
 plot(hh_200m_rm, "count", col = pal, alpha = 0.85)
 
 length(hh_200m_rm$value$count)
 
 # quadtree
-hh_200m_qt <- protect_quadtree(hh_200m_raster, max_zoom = Inf)
+hh_200m_qt <- sdcSpatial::protect_quadtree(hh_200m_raster, max_zoom = Inf)
 plot(hh_200m_qt, "count", col = pal, alpha = 0.85)
 #Different result from the one seen before: 
 #hypothesis: the function does not take the nesting of Inspire grid layers.
@@ -140,8 +143,8 @@ plot(hh_200m_qt, "count", col = pal, alpha = 0.85)
 
 
 # smoothing
-hh_200m_sm_400 <- protect_smooth(hh_200m_raster, bw = 400)
-hh_200m_sm_1000 <- protect_smooth(hh_200m_raster, bw = 1000)
+hh_200m_sm_400 <- sdcSpatial::protect_smooth(hh_200m_raster, bw = 400)
+hh_200m_sm_1000 <- sdcSpatial::protect_smooth(hh_200m_raster, bw = 1000)
 plot(hh_200m_sm_400, "count", col = pal, alpha = 0.85)
 plot(hh_200m_sm_1000, "count", col = pal, alpha = 0.85)
 
@@ -214,16 +217,52 @@ mapview(
 # - maps in quite dense areas
 # - and in a quite homogoneic territory (not too many barriers creating too many no man's land)
 
-
-
 # Assess the utility of a map (and not only the loss of utility)
 # - Are we creating a lot of non empty cells ? 
 # => difficult to defend when we can compare grid cells with satellite images for example
-# ex: smoothing
-# - At which scale the information is displayed: local, regional, state ?
+
+# ex: smoothing 
+
+# => To avoid this kind of negative side effects, it's possible to 
+# - smooth not too strongly : ie choosing a bandwidth that doesn't create not too many false populated cells
+# - and remove the remaining sensitive cells.
+
+
+# Assess the utility ------------------------------------------------------
+
+# Hellinger distance
+# KWD (with precautions and just as project)
+# + share of false populated cells
+# Moan's I ?
 
 
 
+
+# Moran's I ---------------------------------------------------------------
+
+# Neighbors
+nb <- spdep::poly2nb(pop_200m, queen = TRUE)
+# Weights of the neighbors with a row standardization (style=W)
+lw <- spdep::nb2listw(nb, style="W", zero.policy=TRUE)
+
+Imoran <- spdep::moran(pop_200m$Ind_snv, lw, length(nb), spdep::Szero(lw), zero.policy=TRUE)
+Imoran$I
+spdep::moran.test(pop_200m$Ind_snv, lw, alternative="greater", zero.policy = TRUE)
+
+
+
+
+# pop_200m$Ind_snv_STD <- scale(pop_200m$Ind_snv)
+# 
+# spdep::moran.plot(
+#   as.numeric(pop_200m$Ind_snv_STD),
+#   listw = lw,
+#   xlab = "Revenus disponibles médians par Iris",
+#   ylab = "Moyenne des revenus des voisins",
+#   main = "Diagramme de Moran"
+# )
+# 
+# spdep::moran.plot(as.numeric(scale(pop_200m$Ind_snv)), lw, labels = FALSE, xlab ="",ylab="")
 
 # library(quadtree)
 # 
