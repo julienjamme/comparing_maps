@@ -168,6 +168,15 @@ distances_reunion_Ind %>% rename(Island_val = val) %>%
 ```
 
 
+## A perturbative method
+
+permutation of values between cells in the same natural level grid.
+
+```{r}
+st_louis_area
+```
+
+
 ## Sensitivity to the grain of the information
 
 Comparison while measuring distances from maps of 1km vs 200m grid.
