@@ -217,10 +217,10 @@ mapview(
 
 
 # Assess the utility of a map (and not only the loss of utility)
-# - are we creating a lot of non empty cells ? 
+# - Are we creating a lot of non empty cells ? 
 # => difficult to defend when we can compare grid cells with satellite images for example
-# ex: smoothing 
-
+# ex: smoothing
+# - At which scale the information is displayed: local, regional, state ?
 
 
 
