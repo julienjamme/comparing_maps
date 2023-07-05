@@ -14,6 +14,9 @@ pop_grid_200m_sf <- sf::st_read("data/Filosofi2017_carreaux_200m_reun.gpkg")
 pop_grid_nat_sf <- sf::st_read("data/Filosofi2017_carreaux_nivNaturel_reun.gpkg")
 str(pop_grid_200m_sf)
 
+pal <- c("#FDE333", "#BBDD38", "#6CD05E", "#00BE7D", "#00A890"
+         , "#008E98",  "#007094", "#185086", "#422C70", "#4B0055")
+
 # Centroides of the 200m grid --------
 centroides <- sf::st_centroid(pop_grid_200m_sf)
 
