@@ -173,8 +173,130 @@ distances_reunion_Ind %>% rename(Island_val = val) %>%
 permutation of values between cells in the same natural level grid.
 
 ```{r}
-st_louis_area
+pop_grid_200m_sf <- sf::st_read("data/Filosofi2017_carreaux_200m_reun.gpkg")
+perm_200m_sf <- pop_grid_200m_sf %>% 
+  # st_drop_geometry() %>% 
+  group_by(Idcar_1km) %>% 
+  mutate(n_car1km = n()) %>% 
+  mutate(
+    is_perm_1 = sample(c(T,F), n(), replace = TRUE, prob = c(0.1,0.9)),
+    is_perm_2 = sample(c(T,F), n(), replace = TRUE, prob = c(0.25,0.75)),
+    is_perm_3 = sample(c(T,F), n(), replace = TRUE, prob = c(0.5,0.5)),
+    is_perm_4 = sample(c(T,F), n(), replace = TRUE, prob = c(0.75,0.25)),
+    is_perm_5 = sample(c(T,F), n(), replace = TRUE, prob = c(0.9,0.1))
+    # is_perm_6 = TRUE
+  ) %>% 
+  group_by(Idcar_1km) %>% 
+  mutate(across(starts_with("is_perm_"), sum, .names = "n_{.col}")) %>%
+  mutate(
+    is_perm_1 = ifelse(n_is_perm_1 == 1, FALSE, is_perm_1),
+    is_perm_2 = ifelse(n_is_perm_2 == 1, FALSE, is_perm_2),
+    is_perm_3 = ifelse(n_is_perm_3 == 1, FALSE, is_perm_3),
+    is_perm_4 = ifelse(n_is_perm_4 == 1, FALSE, is_perm_4),
+    is_perm_5 = ifelse(n_is_perm_5 == 1, FALSE, is_perm_5)
+    # is_perm_6 = ifelse(n_is_perm_6 == 1, FALSE, is_perm_6)
+  )
+
+for(i in 1:5){
+  is_var <- paste0("is_perm_", i)
+  perm_200m_sf <- perm_200m_sf %>%
+    ungroup() %>% 
+    mutate(across(all_of(is_var), ~., .names="is_perm")) %>% 
+    group_by(Idcar_1km, is_perm) %>% 
+    mutate(Men_perm = sample(Men, n())) %>% 
+    ungroup() %>%
+    mutate(Men_perm = ifelse(is_perm, Men_perm, Men)) %>%
+    rename_with(~paste0(. , "_", i), .cols = "Men_perm") %>%
+    select(-is_perm)
+}
 ```
+
+
+Controls 
+
+```{r}
+str(perm_200m_sf)
+
+perm_200m_sf %>% 
+  st_drop_geometry() %>% 
+  group_by(Idcar_1km) %>% 
+  summarise(n_car = n(), moy = mean(Men), moy_perm = mean(Men_perm_3)) %>%
+  filter(moy != moy_perm)
+
+perm_200m_sf %>%  
+  filter(Idcar_1km == "CRS2975RES1000mN7640000E361000") %>% select(n_car1km, starts_with("n_is_perm"), starts_with("is_perm"), Men, starts_with("Men_perm")) %>% View()
+```
+
+### On a sub-map
+
+```{r}
+borders_mun_sf <- sf::st_read("data/commune_dep_974_2019.gpkg")
+st_denis_borders <- borders_mun_sf %>% filter(libelle == "Saint-Denis") %>% st_geometry()
+st_denis_compo <- sf::st_contains(
+  st_denis_borders,
+  perm_200m_sf
+)
+# 
+# plot(perm_200m_sf %>% st_geometry())
+# plot(st_denis_borders, add = TRUE, size = 2, col = "red") 
+
+perm_st_denis_200m_sf <- perm_200m_sf %>% slice(st_denis_compo[[1]])
+# plot(perm_st_denis_200m_sf %>% st_geometry())
+```
+
+
+```{r}
+perm_st_denis_200m_df <- perm_st_denis_200m_sf %>% sf::st_drop_geometry() %>% 
+  dplyr::bind_cols(
+    sf::st_centroid(perm_st_denis_200m_sf) %>% sf::st_coordinates() %>%  as.data.frame() %>% select(x=X,y=Y)
+  )
+perm_st_denis_raster_Men <- rasterFromXYZ(
+  xyz = perm_st_denis_200m_df %>% dplyr::select(x,y,Men,starts_with("Men_perm")) %>% 
+    arrange(x,y)
+)
+# perm_st_denis_raster_Men[is.na(perm_raster_Men)] <- 0
+plot(perm_st_denis_raster_Men)
+```
+
+
+```{r}
+distances_perm_st_denis_200m <- compare_distances(
+  coordinates = perm_st_denis_200m_df %>% dplyr::select(x,y),
+  weights = perm_st_denis_200m_df %>% dplyr::select(Men, starts_with("Men_perm"))
+) %>% filter(distance %in% c("kwd", "Hellinger"))
+```
+
+
+```{r}
+distances_perm_st_denis_200m
+```
+
+
+```{r}
+ggplot(distances_perm_st_denis_200m) +
+  geom_point(aes(x=map, y=val, col = distance))
+```
+
+
+
+### On all the island
+
+```{r}
+perm_raster_Men <- rasterFromXYZ(
+  xyz = perm_200m_df %>% dplyr::select(x,y,Men,starts_with("Men_perm")) %>% 
+    arrange(x,y)
+)
+perm_raster_Men[is.na(perm_raster_Men)] <- 0
+plot(perm_raster_Men)
+```
+
+```{r}
+distances_perm_200m <- compare_distances(
+  coordinates = perm_200m_df %>% dplyr::select(x,y),
+  weights = perm_200m_df %>% dplyr::select(Men, starts_with("Men_perm"))
+) %>% filter(distance %in% c("kwd", "Hellinger"))
+```
+
 
 
 ## Sensitivity to the grain of the information
