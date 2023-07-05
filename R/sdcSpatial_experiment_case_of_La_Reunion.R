@@ -94,6 +94,8 @@ hh_200m <- hh_200m[rep(seq(.N), Men), ]
 hh_200m[, id := 1:.N]
 nrow(hh_200m) == sum(ceiling(pop_200m$Men))
 
+LaReunion_hh_200m <- hh_200m
+
 hh_200m <- hh_200m %>% 
   left_join(
     centroides %>% 

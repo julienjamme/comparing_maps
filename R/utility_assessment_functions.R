@@ -11,6 +11,7 @@
 #            KWD: Kantorovic-Wasserstein Distance
 # ...  :   additional parameters for SpatialKWD::compareOneToOne()
 # Source: https://github.com/mamoeh/sdcSpatialExperiment_DE/blob/master/02_sdcSpatial_DE.R
+# reviewed
 get_utility <- function(x, orig, 
                         value = "count", 
                         measure = c("RMSE", "HD", "Moran", "KWD"), 
@@ -58,9 +59,11 @@ get_utility <- function(x, orig,
       
       # approximate Kantorovic-Wasserstein distance
       xy <- raster::xyFromCell(r_x, 1:raster::ncell(r_x))
-      u[i] <- SpatialKWD::compareOneToOne(Coordinates = xy,
-                                          Weights = cbind(v_o, v_x_sc),
-                                          ...)$distance
+      u[i] <- SpatialKWD::compareOneToOne(
+        Coordinates = xy,
+        Weights = cbind(v_o, v_x_sc),
+        ...
+      )$distance
     }
   }
   
