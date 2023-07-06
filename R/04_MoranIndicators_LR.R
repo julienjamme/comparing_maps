@@ -47,7 +47,10 @@ compute_Moran_I_from_sdcRaster <- function(
   
   crs_ref <- sf::st_crs(sf_ref)
   
-  points <- as.data.frame(xy_coords) %>%
+  points <- as.data.frame(xy_coords) %>% 
+    cbind(data.frame(count = raster::getValues(raster_count))) %>% 
+    filter(!is.na(count)) %>% 
+    mutate(square_num = 1:n()) %>%
     mutate(
       x1 = x - res/2,
       y1 = y - res/2,
@@ -59,37 +62,29 @@ compute_Moran_I_from_sdcRaster <- function(
       y4 = y - res/2,
       x5 = x - res/2,
       y5 = y - res/2
-    )
-  list_mat <- list()
-  for(i in seq_len(nrow(points))){
-    list_mat[[i]] <- matrix(
-      as.numeric(points[i,-(1:2)]), 
-      ncol = 2,
-      byrow = TRUE
-    )
-  }
-  grid_poly <- sf::st_polygon(list_mat) %>% st_as_sf()
-    
-    sf::st_as_sf(coords = c("x","y"), crs = crs_ref) %>% 
-    cbind(data.frame(count = raster::getValues(raster_count))) %>% 
-    filter(!is.na(count)) %>% 
-    st_make_grid(sf_ref, cellsize = 200, offset = st_bbox(sf_ref)[c("xmin", "ymin")]) %>%
-    sf::st_as_sf() %>% str()
-    left_join()
-    filter(!is.na(count)) %>%
-    left_join(
-      sf_ref %>%
-        cbind(
-          sf_ref %>% sf::st_centroid() %>% sf::st_coordinates()
-        ), by = c("x" = "X", "y" = "Y")
-    ) %>% sf::st_as_sf()
+    ) %>% 
+    rename(x_centr = x, y_centr = y) %>% 
+    tidyr::unite(x1,y1, col = "x1_y1",sep = "_",remove = TRUE) %>% 
+    tidyr::unite(x2,y2, col = "x2_y2",sep = "_",remove = TRUE) %>% 
+    tidyr::unite(x3,y3, col = "x3_y3",sep = "_",remove = TRUE) %>% 
+    tidyr::unite(x4,y4, col = "x4_y4",sep = "_",remove = TRUE) %>% 
+    tidyr::unite(x5,y5, col = "x5_y5",sep = "_",remove = TRUE) %>%
+    tidyr::pivot_longer(matches("_y"), names_to = "pt", values_to = "x_y") %>% 
+    tidyr::separate(x_y, into =c("x", "y"), sep = "_") %>% 
+    mutate(across(all_of(c("x","y")), as.numeric))
   
-  nb <- spdep::poly2nb(sf_counts, queen = TRUE)
+  counts_grid_sf <- points %>%
+    st_as_sf(coords = c("x", "y"), crs = crs_ref) %>%
+    group_by(square_num, count) %>%
+    summarise(geometry = st_combine(geometry), .groups = "drop") %>%
+    st_cast("POLYGON")
+  
+  nb <- spdep::poly2nb(counts_grid_sf, queen = TRUE)
   lw <- spdep::nb2listw(nb, style="W", zero.policy=TRUE)
   
   return(
     spdep::moran.test(
-      sf_counts$count, 
+      counts_grid_sf$count, 
       lw, 
       alternative="greater", # We expect that the correlation is positive
       zero.policy = TRUE
@@ -103,6 +98,6 @@ MoranTest_list <- purrr::map(
   sf_ref = pop_200m
 )
 
-compute_Moran_I_from_sdcRaster(sdcRaster = hh_200m_qt1, sf_ref = pop_200m)
+Moran_orig <- compute_Moran_I_from_sdcRaster(sdcRaster = hh_200m_raster, sf_ref = pop_200m)
 
 
