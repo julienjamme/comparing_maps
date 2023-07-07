@@ -1,5 +1,7 @@
 
 source("R/01_build_grid_and_microdata_LR.R")
+source("R/utility_assessment_functions.R")
+source("R/functions.R")
 
 hh_200m_raster <- sdcSpatial::sdc_raster(
   hh_200m,
