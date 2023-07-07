@@ -22,11 +22,20 @@ st_denis_grid_200m_sf <- sf::st_intersection(
 
 box <- st_bbox(st_denis_grid_200m_sf)
 radius = c(box[["ymax"]]-box[["ymin"]], 
-             box[["xmax"]]-box[["xmin"]])/2
-center_thq <- c((box[["ymax"]]+box[["ymin"]])/2, 
-                (box[["xmax"]]+box[["xmin"]])/2)
-center_candidates <- xy[xy[,1] > 338000 & xy[,1] < 338400 & xy[,2] > 7686600 & xy[,2] < 7687200,]
-index_center_candidates <- which(xy[,1] > 338000 & xy[,1] < 338400 & xy[,2] > 7686600 & xy[,2] < 7687200)
+           box[["xmax"]]-box[["xmin"]])/2
+center_thq <- c((box[["xmax"]]+box[["xmin"]])/2,
+                (box[["ymax"]]+box[["ymin"]])/2)
+
+# center_thq <- c(349521, 7651497) # other location more in the land, far from the coast
+
+ref_center <- c(center_thq - center_thq %% 200)
+
+index_center_candidates <- which(
+  xy[,1] > (ref_center[1] - 400) &
+    xy[,1] < (ref_center[1] + 400) & 
+    xy[,2] > (ref_center[2] - 400) & 
+    xy[,2] < (ref_center[2] + 400)
+)
 
 (d <- focusArea(
   Coordinates = xy,
@@ -35,7 +44,7 @@ index_center_candidates <- which(xy[,1] > 338000 & xy[,1] < 338400 & xy[,2] > 76
   y = xy[index_center_candidates[1],2],
   radius = 20,
   area = "linf",
-  method="approx", 
+  method="exact", 
   recode=TRUE, 
   verbosity = "info"))
 # value of the distance is > 7000 !
