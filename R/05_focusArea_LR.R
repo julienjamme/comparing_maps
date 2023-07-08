@@ -28,25 +28,41 @@ center_thq <- c((box[["xmax"]]+box[["xmin"]])/2,
 
 # center_thq <- c(349521, 7651497) # other location more in the land, far from the coast
 
+center_thq <- c(341835, 7687185) #parc technor
+x_min_thq <- 337300 #to compute the radius
 ref_center <- c(center_thq - center_thq %% 200)
 
 index_center_candidates <- which(
-  xy[,1] > (ref_center[1] - 400) &
-    xy[,1] < (ref_center[1] + 400) & 
-    xy[,2] > (ref_center[2] - 400) & 
-    xy[,2] < (ref_center[2] + 400)
+  xy[,1] > (ref_center[1] - 200) &
+    xy[,1] < (ref_center[1] + 200) & 
+    xy[,2] > (ref_center[2] - 200) & 
+    xy[,2] < (ref_center[2] + 200)
 )
+center_fa <- xy[index_center_candidates[1],]
+radius_fa <- 2000 #abs(center[1] - (x_min_thq - x_min_thq %% 200))
+
+select_coords_fa <- which(
+  xy[,1] >= center_fa[1] - radius_fa & 
+    xy[,1] <= center_fa[1] + radius_fa & 
+    xy[,2] <= center_fa[2] + radius_fa & 
+    xy[,2] >= center_fa[2] - radius_fa
+)
+xy_fa <- xy[select_coords_fa,]
+orig_values_fa <- orig_values[select_coords_fa]
+pert_values_fa <- pert_values[select_coords_fa]
 
 (d <- focusArea(
   Coordinates = xy,
   Weights = cbind(orig_values, pert_values),
-  x = xy[index_center_candidates[1],1],
-  y = xy[index_center_candidates[1],2],
-  radius = 20,
+  x = center_fa[1],
+  y = center_fa[2],
+  radius = radius_fa,
   area = "linf",
   method="exact", 
   recode=TRUE, 
   verbosity = "info"))
+d$distance/sum(pert_values)
+d$distance/sum(pert_values_fa)
 # value of the distance is > 7000 !
 
 # try different radius values

@@ -1,0 +1,113 @@
+---
+title: "Simulation on the focusArea help example"
+output: pdf_document
+date: "2023-07-08"
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+load("/home/onyxia/work/comparing_maps/outputs/simulation_on_focus_area_example_results_500sims.RData")
+```
+
+
+Observation: the KWD provided by the focusArea function seems not meaningful/realistic.
+
+Conjecture: We have to divide the raw results by either the focus_area total count or 
+the whole map total count. (Is there any option?)
+
+Objective: From the example shown in the help of the package, we compare the raw results 
+of the focusArea function with the raw results divided by the total count of the values 
+within, respectively, the focus area and the whole map.
+
+Method: Monte-Carlo estimation of each option of the kwd.
+
+- "kwd" denotes the raw result of the `focusArea` function
+- "kwd_fa" denotes the "kwd" estimator divided by the total count within the focus area
+- "kwd_whole" denotes the "kwd" estimator divided by the total count within the whole map.
+
+
+## Simulation
+
+```{r, eval=FALSE}
+library(SpatialKWD)
+
+set.seed(40889)
+n <- 500
+res <- matrix(nrow = n, ncol=3)
+colnames(res) <- c("kwd","kwd_fa","kwd_whole")
+
+for(i in seq_len(n)){
+  N = 90
+  Xs <- as.integer(runif(N, 0, 31))
+  Ys <- as.integer(runif(N, 0, 31))
+  coordinates <- matrix(c(Xs, Ys), ncol=2, nrow=N)
+  index_coordinates_fa <- coordinates[
+    coordinates[,1] >= 10 &
+      coordinates[,2] >= 10 &
+      coordinates[,1] <= 20 &
+      coordinates[,2] <= 20,
+  ]
+  # Random weights
+  test1 <- matrix(runif(2*N, 0, 1), ncol=2, nrow=N)
+  test1_fa <- test1[index_coordinates_fa,]
+  # Compute distance
+  print("Compare one-to-one with exact algorithm:")
+  d <- focusArea(coordinates, Weights=test1,
+                 x=15, y=15, radius=5,
+                 method="exact", recode=TRUE, verbosity = "info")
+  res[i,] <- c(d$distance, d$distance/sum(test1_fa[,2]), d$distance/sum(test1[,2]))
+}
+```
+
+```{r}
+cummeans <- apply(res, 2, cumsum)/seq_along(res[,1])
+```
+
+
+## Results 
+
+
+### Mean Estimates
+
+```{r}
+(d_means <- colMeans(res))
+```
+
+
+### Range of the values obtained during the simulations
+
+```{r}
+(range_kwd <- apply(res, 2, range))
+```
+
+
+### Stability of the estimations
+
+```{r}
+plot(cummeans[,"kwd"], type="l")
+```
+
+
+```{r}
+plot(cummeans[,"kwd_fa"], type="l")
+```
+
+
+```{r}
+plot(cummeans[,"kwd_whole"], type="l")
+```
+
+## Can we conclude ?
+
+To decide which is the good estimator of the kwd is not so obvious:  
+
+- the raw kwd seems difficult to interpret, being constantly outside [0,1];
+- the mean of each of the other two estimators are inside [0;1]
+- As the values are randomly drawn, we can expect a quite large value of the KWD,
+and in that case, we coul tend to choose the kwd_fa estimator.
+- But only the kwd_whole has all its values within [0;1]
+
+That's why I would choose the kwd_whole estimator.
+This needs to be theorically confirmed.
+
+
