@@ -216,7 +216,7 @@ compute_kwd_with_focus_area <- function(
   xy <- raster::xyFromCell(pert_raster, seq_along(pert_values))
   
   if(nrow(xy[xy[,1] == center_thq[1] & xy[,1] == center_thq[2],]) == 0){
-    ref_center <- c(center_thq - center_thq %% cell_size)
+    ref_center <- center_thq #c(center_thq - center_thq %% cell_size)
     
     # to pick up a cell which is near the theoretical/wanted center  
     #it may fail if the center is far from a 
@@ -244,7 +244,7 @@ compute_kwd_with_focus_area <- function(
   }
   
   radius_fa <- if(is.null(radius)){
-    floor(abs((center[1] - x_min_thq))/cell_size)*cell_size
+    floor(abs((center_fa[1] - x_min_thq))/cell_size)*cell_size
   }else radius
   
   x_min_fa <- center_fa[1] - radius_fa
@@ -272,7 +272,7 @@ compute_kwd_with_focus_area <- function(
   orig_values_fa <- orig_values[select_coords_fa]
   pert_values_fa <- pert_values[select_coords_fa]
   
-  (d <- focusArea(
+  d <- focusArea(
     Coordinates = xy,
     Weights = cbind(orig_values, pert_values),
     x = center_fa[1],
@@ -281,7 +281,7 @@ compute_kwd_with_focus_area <- function(
     area = "linf",
     method="exact", 
     recode=TRUE, 
-    verbosity = "info"))
+    verbosity = "info")
   
   return(
     list(

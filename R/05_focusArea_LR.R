@@ -1,117 +1,63 @@
 
-pert_raster <- hh_200m_qt1$value$count
-pert_values <- raster::getValues(pert_raster)
-orig_values <- raster::getValues(hh_200m_raster$value$count)
-
-sum(pert_values, na.rm=TRUE) == sum(orig_values, na.rm=TRUE)
-
-pert_values[is.na(pert_values)] <- 0
-orig_values[is.na(orig_values)] <- 0
-
-xy <- raster::xyFromCell(pert_raster, seq_along(pert_values))
 
 
-# search coordinates for the center of the focus area ---------------------
+# choice of the areas -----------------------------------------------------
 
-st_denis_borders <- borders_mun_sf %>% filter(libelle == "Saint-Denis") %>% st_geometry()
-
-st_denis_grid_200m_sf <- sf::st_intersection(
-  pop_grid_200m_sf,
-  st_denis_borders
+desc_areas <- list(
+  st_denis = list(center = c(344835, 7686185), x_min = 337300),
+  st_pierre = list(center = c(343900, 7646100), x_min = 333100),
+  plaine = list(center = c(357100, 7661500), x_min = 353000),
+  st_gilles = list(center = c(321700, 7670800), x_min = 312600)
 )
 
-box <- st_bbox(st_denis_grid_200m_sf)
-radius = c(box[["ymax"]]-box[["ymin"]], 
-           box[["xmax"]]-box[["xmin"]])/2
-center_thq <- c((box[["xmax"]]+box[["xmin"]])/2,
-                (box[["ymax"]]+box[["ymin"]])/2)
 
-# center_thq <- c(349521, 7651497) # other location more in the land, far from the coast
+# compute kwd -------------------------------------------------------------
 
-center_thq <- c(341835, 7687185) #parc technor
-x_min_thq <- 337300 #to compute the radius
-ref_center <- c(center_thq - center_thq %% 200)
-
-index_center_candidates <- which(
-  xy[,1] > (ref_center[1] - 200) &
-    xy[,1] < (ref_center[1] + 200) & 
-    xy[,2] > (ref_center[2] - 200) & 
-    xy[,2] < (ref_center[2] + 200)
+maps_list <- list(
+  quadtreeI = hh_200m_qt1
+  # quadtreeII = hh_200m_qt2,
+  # smooth200 = hh_200m_sm_200,
+  # smooth400 = hh_200m_sm_400
 )
-center_fa <- xy[index_center_candidates[1],]
-radius_fa <- 2000 #abs(center[1] - (x_min_thq - x_min_thq %% 200))
 
-select_coords_fa <- which(
-  xy[,1] >= center_fa[1] - radius_fa & 
-    xy[,1] <= center_fa[1] + radius_fa & 
-    xy[,2] <= center_fa[2] + radius_fa & 
-    xy[,2] >= center_fa[2] - radius_fa
-)
-xy_fa <- xy[select_coords_fa,]
-orig_values_fa <- orig_values[select_coords_fa]
-pert_values_fa <- pert_values[select_coords_fa]
-
-(d <- focusArea(
-  Coordinates = xy,
-  Weights = cbind(orig_values, pert_values),
-  x = center_fa[1],
-  y = center_fa[2],
-  radius = radius_fa,
-  area = "linf",
-  method="exact", 
-  recode=TRUE, 
-  verbosity = "info"))
-d$distance/sum(pert_values)
-d$distance/sum(pert_values_fa)
-# value of the distance is > 7000 !
-
-# try different radius values
-kwd_diff_rads <- lapply(
-  c(20,200,2000,20000),
-  function(r){
-    focusArea(
-      Coordinates = xy,
-      Weights = cbind(orig_values, pert_values),
-      x = xy[index_center_candidates[1],1],
-      y = xy[index_center_candidates[1],2],
-      radius = r,
-      area = "linf",
-      method="approx", 
-      recode=TRUE, 
-      verbosity = "info")
+res_kwd_on_fa <- purrr::map(
+  maps_list,
+  \(m){
+    purrr::map(
+      desc_areas,
+      \(d){
+        compute_kwd_with_focus_area(
+          orig_raster = hh_200m_raster,
+          pert_raster = m,
+          type_value = "count",
+          center_thq = d$center,
+          x_min_thq = d$x_min,
+          cell_size = 200
+        )
+      }
+    )
   }
 )
-sapply(kwd_diff_rads, function(a) a$distance)
-# kwd result: 7544.573  94759.535 120782.736 120782.736
-
-# With integer coordinates ------------------------------------------------
-
-(d <- focusArea(
-  Coordinates = cbind(seq_along(xy), seq_along(xy)),
-  Weights = cbind(orig_values, pert_values),
-  x = index_center_candidates[1], #xy[index_center_candidates[1],1],
-  y = index_center_candidates[1], #xy[index_center_candidates[1],2],
-  radius = 20,
-  area = "linf",
-  method="approx", 
-  verbosity = "info"))
-# Long and return an error for presence of negative weights!
 
 
-# use compareOneToOne directly on the area --------------------------------
-center <- center_candidates[1,]
-radius <- 2000 #meters
 
-select_coords_fa <- which(
-  xy[,1] > center[1] - radius & 
-    xy[,1] < center[1] + radius & 
-    xy[,2] < center[2] + radius & 
-    xy[,2] > center[2] - radius
-)
-xy_fa <- xy[select_coords_fa,]
-orig_values_fa <- orig_values[select_coords_fa]
-pert_values_fa <- pert_values[select_coords_fa]
+# Visualize the areas -----------------------------------------------------
 
-compareOneToOne(xy, cbind(orig_values, pert_values))$distance
-compareOneToOne(xy_fa, cbind(orig_values_fa, pert_values_fa))$distance
-# We retrieve here some realistic values
+
+
+
+# KWD Results -----------------------------------------------------------------
+
+
+
+
+
+# 
+# res_fa <- compute_kwd_with_focus_area(
+#   orig_raster = hh_200m_raster,
+#   pert_raster = hh_200m_qt1,
+#   type_value = "count",
+#   center_thq = c(341835, 7687185),
+#   x_min_thq = 337300,
+#   cell_size = 200
+#   )

@@ -5,39 +5,23 @@ qt_nat[1] <- 0
 pal <- c("#FDE333", "#BBDD38", "#6CD05E", "#00BE7D", "#00A890"
          , "#008E98",  "#007094", "#185086", "#422C70", "#4B0055")
 pal5 <- pal[seq(1,10,2)]
+
+st_focus_areas <- c(
+  res_kwd_on_fa[[1]][["st_denis"]]$st_pol_fa,
+  res_kwd_on_fa[[1]][["st_pierre"]]$st_pol_fa,
+  res_kwd_on_fa[[1]][["plaine"]]$st_pol_fa,
+  res_kwd_on_fa[[1]][["st_gilles"]]$st_pol_fa
+)
+
+
 mapview(
-  borders_mun_sf%>% st_transform(crs = 4326),
-  col.regions = NA,
-  color = c("grey15"),
-  alpha = 0.95,
-  alpha.regions = 0,
-  map.types = c("OpenStreetMap","Esri.WorldImagery")
-) + mapview(
-  pop_200m %>% st_transform(crs = 4326), 
-  z = c("Men"),
-  at = qt,
-  lwd = 0,
-  color.regions = pal5,
-  alpha.regions = 0.85,
-  layer.name = "Households"
-) +
-  # mapview(
-  #   pop_grid_nat_sf %>% st_transform(crs = 4326), 
-  #   z = c("Men"),
-  #   at = qt_nat,
-  #   lwd = 0.3,
-  #   color.regions = pal5,
-  #   alpha.regions = 0.85,
-  #   na.color = NA,
-  #   layer.name = "Natural Level"
-  # ) +
-  viewExtent(
-    st_pol_fa,
+  st_focus_areas,
     color = c("red"),
-    alpha.regions = 0
+    alpha.regions = 0,
+    layer.name = "area1"
   ) +
   mapview(
-    pop_200m %>% st_transform(crs = 4326), 
+    pop_200m, 
     z = c("Men"),
     at = qt,
     lwd = 0,
