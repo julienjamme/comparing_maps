@@ -176,6 +176,7 @@ compare_distances <- function(coordinates, weights){
 #' @param x_min_thq x coordinate of the furthest point (to compute the radius if `radius` is null)
 #' @param radius radius in the unit of the map (`NULL`) by default
 #' @param cell_size cell size in the unit of the map
+#' @param crs_epsg Coordinate Reference System: the numeric epsg code is enough
 #'
 #' @return a data.frame with
 #' - "kwd" : the raw kwd computed by the `focusArea` function
@@ -185,7 +186,7 @@ compare_distances <- function(coordinates, weights){
 #'
 #' @examples
 #' \{Don't run}
-#' compute_kwd_with_focus_area(
+#' res_fa <- compute_kwd_with_focus_area(
 #' orig_raster = hh_200m_raster,
 #' pert_raster = hh_200m_qt1,
 #' type_value = "count",
@@ -200,7 +201,8 @@ compute_kwd_with_focus_area <- function(
     center_thq,
     x_min_thq,
     radius = NULL,
-    cell_size
+    cell_size,
+    crs_epsg = 2975
 ){
   pert_raster <- pert_raster$value$count
   pert_values <- raster::getValues(pert_raster)
@@ -213,36 +215,58 @@ compute_kwd_with_focus_area <- function(
   
   xy <- raster::xyFromCell(pert_raster, seq_along(pert_values))
   
-  ref_center <- c(center_thq - center_thq %% cell_size)
-  
-  # to pick up a cell which is near the theoretical/wanted center  
-  #it may fail if the center is far from a 
-  res_times <- 1
-  no_candidates <- TRUE
-  while(res_times <= 10 & no_candidates){
-    index_center_candidates <- which(
-      xy[,1] > (ref_center[1] - res_times*cell_size) &
-        xy[,1] < (ref_center[1] + res_times*cell_size) & 
-        xy[,2] > (ref_center[2] - res_times*cell_size) & 
-        xy[,2] < (ref_center[2] + res_times*cell_size)
-    )
-    no_candidates <- length(index_center_candidates) == 0
-    res_times <- res_times + 1
+  if(nrow(xy[xy[,1] == center_thq[1] & xy[,1] == center_thq[2],]) == 0){
+    ref_center <- c(center_thq - center_thq %% cell_size)
+    
+    # to pick up a cell which is near the theoretical/wanted center  
+    #it may fail if the center is far from a 
+    res_times <- 1
+    no_candidates <- TRUE
+    while(res_times <= 10 & no_candidates){
+      index_center_candidates <- which(
+        xy[,1] > (ref_center[1] - res_times*cell_size) &
+          xy[,1] < (ref_center[1] + res_times*cell_size) & 
+          xy[,2] > (ref_center[2] - res_times*cell_size) & 
+          xy[,2] < (ref_center[2] + res_times*cell_size)
+      )
+      no_candidates <- length(index_center_candidates) == 0
+      res_times <- res_times + 1
+    }
+    if(no_candidates){
+      message("no candidates near the theoretical center")
+      return(NULL)
+    }
+    cat("candidates found in a window of ", res_times*cell_size, " radius")
+    
+    center_fa <- xy[index_center_candidates[1],]
+  }else{
+    center_fa <- center_thq
   }
-  if(no_candidates){
-    message("no candidates near the theoretical center")
-    return(NULL)
-  }
-  cat("candidates found in a window of ", res_times*cell_size, " radius")
   
-  center_fa <- xy[index_center_candidates[1],]
-  radius_fa <- if(is.null(radius)) abs(center[1] - (x_min_thq - x_min_thq %% 200)) else radius
+  radius_fa <- if(is.null(radius)){
+    floor(abs((center[1] - x_min_thq))/cell_size)*cell_size
+  }else radius
+  
+  x_min_fa <- center_fa[1] - radius_fa
+  x_max_fa <- center_fa[1] + radius_fa
+  y_max_fa <- center_fa[2] + radius_fa
+  y_min_fa <- center_fa[2] - radius_fa
+  
+  c <- cell_size/2
+  pts_sw <- c(x_min_fa - c, y_min_fa - c)
+  pts_nw <- c(x_min_fa - c, y_max_fa + c)
+  pts_se <- c(x_max_fa + c, y_min_fa - c)
+  pts_ne <- c(x_max_fa + c, y_max_fa + c)
+
+  st_pol_fa <- list(rbind(pts_sw, pts_nw, pts_ne, pts_se, pts_sw)) %>% 
+    sf::st_polygon() %>% 
+    sf::st_sfc(crs = crs_epsg)
   
   select_coords_fa <- which(
-    xy[,1] >= center_fa[1] - radius_fa & 
-      xy[,1] <= center_fa[1] + radius_fa & 
-      xy[,2] <= center_fa[2] + radius_fa & 
-      xy[,2] >= center_fa[2] - radius_fa
+    xy[,1] >= x_min_fa & 
+      xy[,1] <= x_max_fa & 
+      xy[,2] <=  y_max_fa & 
+      xy[,2] >= y_min_fa
   )
   xy_fa <- xy[select_coords_fa,]
   orig_values_fa <- orig_values[select_coords_fa]
@@ -260,10 +284,13 @@ compute_kwd_with_focus_area <- function(
     verbosity = "info"))
   
   return(
-    data.frame(
-      kwd = d$distance,
-      kwd_fa = d$distance/sum(pert_values_fa),
-      kwd_whole = d$distance/sum(pert_values)
+    list(
+      st_pol_fa = st_pol_fa,
+      res_kwd = data.frame(
+        kwd = d$distance,
+        kwd_fa = d$distance/sum(pert_values_fa),
+        kwd_whole = d$distance/sum(pert_values)
+      )
     )
   )
 }
