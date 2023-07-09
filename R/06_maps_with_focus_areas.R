@@ -18,7 +18,7 @@ mapview(
   st_focus_areas,
     color = c("red"),
     alpha.regions = 0,
-    layer.name = "area1"
+    layer.name = "focus areas"
   ) +
   mapview(
     pop_200m, 

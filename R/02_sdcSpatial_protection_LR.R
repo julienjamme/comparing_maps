@@ -1,7 +1,23 @@
+library(raster)
+library(sf)
+# library(ggplot2)
+# library(viridis)
+library(purrr)
+library(dplyr)
+library(SpatialKWD)
+library(sdcSpatial)
+library(data.table)
+# library(mapview)
 
-source("R/01_build_grid_and_microdata_LR.R")
+# source("R/01_build_grid_and_microdata_LR.R")
+load("data/sf_objects_LR.RData")
 source("R/utility_assessment_functions.R")
 source("R/functions.R")
+
+pal <- c(
+  "#FDE333", "#BBDD38", "#6CD05E", "#00BE7D", "#00A890"
+  , "#008E98",  "#007094", "#185086", "#422C70", "#4B0055"
+)
 
 hh_200m_raster <- sdcSpatial::sdc_raster(
   hh_200m,
@@ -58,7 +74,7 @@ utility_assess <- purrr::imap_dfr(
   function(r_pert, map_name){
     cbind.data.frame(
       map = map_name,
-      t(get_utility(r_pert, hh_200m_raster, value = "count", measure = c("RMSE", "HD", "KWD")))
+      t(get_utility(r_pert, hh_200m_raster, value = "count", measure = c("HD", "KWD")))
     )
   }
 )
@@ -74,7 +90,19 @@ residual_risk <- purrr::imap_dfr(
 )
 
 
+# 1km grid ----------------------------------------------------------------
 
+hh_1km_raster <- sdcSpatial::sdc_raster(
+  hh_1km,
+  variable = 1,
+  r = 1000,
+  min_count = 11,
+  max_risk = 1
+)
 
+hh_1km_qt1 <- sdcSpatial::protect_quadtree(hh_1km_raster, max_zoom = 3)
+hh_1km_qt2 <- sdcSpatial::protect_quadtree(hh_1km_raster, max_zoom = Inf)
+plot(hh_1km_qt1, "count", col = pal, alpha = 0.85)
+plot(hh_1km_qt2, "count", col = pal, alpha = 0.85)
 
 

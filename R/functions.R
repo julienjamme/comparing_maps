@@ -166,11 +166,9 @@ compare_distances <- function(coordinates, weights){
   )
 }
 
-
-#' Compute kwd with `focusArea` from the sdc_raster objects
+#' Title
 #'
 #' @param orig_raster sdcRaster object of the original distribution
-#' @param pert_raster sdcRaster object of the perturbed distribution
 #' @param type_value layer value to compare ("count", "sum", "mean")
 #' @param center_thq coordinates of the theoretical center you want to use as the center of the focus area
 #' @param x_min_thq x coordinate of the furthest point (to compute the radius if `radius` is null)
@@ -178,25 +176,21 @@ compare_distances <- function(coordinates, weights){
 #' @param cell_size cell size in the unit of the map
 #' @param crs_epsg Coordinate Reference System: the numeric epsg code is enough
 #'
-#' @return a data.frame with
-#' - "kwd" : the raw kwd computed by the `focusArea` function
-#' - "kwd_fa" : kwd divided by the total values of the focus area
-#' - "kwd_whole" : kwd divided by the total values of the whole map
+#' @return `sf::st_polygon` object
 #' @export
 #'
 #' @examples
-#' \{Don't run}
-#' res_fa <- compute_kwd_with_focus_area(
+#' st_pol_fa <- create_focus_area(
 #' orig_raster = hh_200m_raster,
-#' pert_raster = hh_200m_qt1,
 #' type_value = "count",
 #' center_thq = c(341835, 7687185),
 #' x_min_thq = 337300,
 #' cell_size = 200
 #' )
-compute_kwd_with_focus_area <- function(
+#' plot(st_pol_fa)
+#' st_area(st_pol_fa)
+create_focus_area <- function(
     orig_raster,
-    pert_raster,
     type_value = "count",
     center_thq,
     x_min_thq,
@@ -204,16 +198,11 @@ compute_kwd_with_focus_area <- function(
     cell_size,
     crs_epsg = 2975
 ){
-  pert_raster <- pert_raster$value$count
-  pert_values <- raster::getValues(pert_raster)
-  orig_values <- raster::getValues(orig_raster$value$count)
-  
-  # sum(pert_values, na.rm=TRUE) == sum(orig_values, na.rm=TRUE)
-  
-  pert_values[is.na(pert_values)] <- 0
+  orig_raster <- orig_raster$value[[type_value]]
+  orig_values <- raster::getValues(orig_raster)
   orig_values[is.na(orig_values)] <- 0
   
-  xy <- raster::xyFromCell(pert_raster, seq_along(pert_values))
+  xy <- raster::xyFromCell(orig_raster, seq_along(orig_values))
   
   if(nrow(xy[xy[,1] == center_thq[1] & xy[,1] == center_thq[2],]) == 0){
     ref_center <- center_thq #c(center_thq - center_thq %% cell_size)
@@ -236,7 +225,7 @@ compute_kwd_with_focus_area <- function(
       message("no candidates near the theoretical center")
       return(NULL)
     }
-    cat("candidates found in a window of ", res_times*cell_size, " radius")
+    cat("candidates found in a window of ", res_times*cell_size, " radius\n")
     
     center_fa <- xy[index_center_candidates[1],]
   }else{
@@ -257,19 +246,80 @@ compute_kwd_with_focus_area <- function(
   pts_nw <- c(x_min_fa - c, y_max_fa + c)
   pts_se <- c(x_max_fa + c, y_min_fa - c)
   pts_ne <- c(x_max_fa + c, y_max_fa + c)
-
+  
   st_pol_fa <- list(rbind(pts_sw, pts_nw, pts_ne, pts_se, pts_sw)) %>% 
     sf::st_polygon() %>% 
     sf::st_sfc(crs = crs_epsg)
   
-  select_coords_fa <- which(
-    xy[,1] >= x_min_fa & 
-      xy[,1] <= x_max_fa & 
-      xy[,2] <=  y_max_fa & 
-      xy[,2] >= y_min_fa
+  return(st_pol_fa)
+}
+
+
+
+#' Compute kwd with `focusArea` from the sdc_raster objects
+#'
+#' @param orig_raster sdcRaster object of the original distribution
+#' @param pert_raster sdcRaster object of the perturbed distribution
+#' @param type_value layer value to compare ("count", "sum", "mean")
+#' @param center_thq coordinates of the theoretical center you want to use as the center of the focus area
+#' @param x_min_thq x coordinate of the furthest point (to compute the radius if `radius` is null)
+#' @param radius radius in the unit of the map (`NULL`) by default
+#' @param cell_size cell size in the unit of the map
+#' @param crs_epsg Coordinate Reference System: the numeric epsg code is enough
+#'
+#' @return a data.frame with
+#' - "kwd" : the raw kwd computed by the `focusArea` function
+#' - "kwd_fa" : kwd divided by the total values of the focus area
+#' - "kwd_whole" : kwd divided by the total values of the whole map
+#' @export
+#'
+#' @examples
+#' \{Don't run}
+#' st_pol_fa <- create_focus_area(
+#' orig_raster = hh_200m_raster,
+#' type_value = "count",
+#' center_thq = c(341835, 7687185),
+#' x_min_thq = 337300,
+#' cell_size = 200
+#' )
+#' res_fa <- compute_kwd_with_focus_area(
+#' orig_raster = hh_200m_raster,
+#' pert_raster = hh_200m_sm_400,
+#' type_value = "count",
+#' st_pol_fa
+#' )
+compute_kwd_with_focus_area <- function(
+    orig_raster,
+    pert_raster,
+    type_value = "count",
+    st_pol_fa
+){
+  pert_raster <- pert_raster$value[[type_value]]
+  pert_values <- raster::getValues(pert_raster)
+  orig_values <- raster::getValues(orig_raster$value[[type_value]])
+  
+  # sum(pert_values, na.rm=TRUE) == sum(orig_values, na.rm=TRUE)
+  
+  pert_values[is.na(pert_values)] <- 0
+  orig_values[is.na(orig_values)] <- 0
+  
+  xy <- raster::xyFromCell(pert_raster, seq_along(pert_values))
+
+  bbox_fa <- sf::st_bbox(st_pol_fa)
+  center_fa <- c(
+    (bbox_fa[["xmin"]] + bbox_fa[["xmax"]])/2,
+    (bbox_fa[["ymin"]] + bbox_fa[["ymax"]])/2
   )
-  xy_fa <- xy[select_coords_fa,]
-  orig_values_fa <- orig_values[select_coords_fa]
+  radius_fa <- abs(bbox_fa[["xmin"]] - bbox_fa[["xmax"]])
+  
+  select_coords_fa <- which(
+    xy[,1] >= bbox_fa[["xmin"]] & 
+      xy[,1] <= bbox_fa[["xmax"]] & 
+      xy[,2] <=  bbox_fa[["ymax"]] & 
+      xy[,2] >= bbox_fa[["ymin"]]
+  )
+  # xy_fa <- xy[select_coords_fa,]
+  # orig_values_fa <- orig_values[select_coords_fa]
   pert_values_fa <- pert_values[select_coords_fa]
   
   d <- focusArea(
@@ -284,14 +334,11 @@ compute_kwd_with_focus_area <- function(
     verbosity = "info")
   
   return(
-    list(
-      st_pol_fa = st_pol_fa,
-      res_kwd = data.frame(
+      data.frame(
         kwd = d$distance,
         kwd_fa = d$distance/sum(pert_values_fa),
         kwd_whole = d$distance/sum(pert_values)
       )
-    )
   )
 }
 

@@ -1,5 +1,19 @@
+library(raster)
+library(sf)
+# library(ggplot2)
+# library(viridis)
+library(purrr)
+library(dplyr)
+library(SpatialKWD)
+library(sdcSpatial)
+library(data.table)
+library(btb)
+# library(mapview)
 
-source("R/01_build_grid_and_microdata_LR.R")
+# source("R/01_build_grid_and_microdata_LR.R")
+load("data/sf_objects_LR.RData")
+source("R/utility_assessment_functions.R")
+source("R/functions.R")
 
 pop_200m_df <- pop_grid_200m_sf %>% 
   sf::st_drop_geometry() %>% 
@@ -18,3 +32,13 @@ pop_200m_smbtb_400 <- btb::btb_smooth(
   mutate(across(matches("^(Ind|Men)"), ~ifelse(is.na(.),0,.)))
 
 str(pop_200m_smbtb_400)
+
+df_la_reunion <- pop_200m_smbtb_400 %>% sf::st_drop_geometry()
+
+
+# first utility assessment ------------------------------------------------
+
+kwd_hd <- compare_distances(
+  coordinates = df_la_reunion %>% dplyr::select(x,y),
+  weights = df_la_reunion %>% dplyr::select(dplyr::starts_with("Men"))
+)
