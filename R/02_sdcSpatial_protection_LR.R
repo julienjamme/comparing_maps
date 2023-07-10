@@ -89,6 +89,8 @@ residual_risk <- purrr::imap_dfr(
   }
 )
 
+# sum(sdcSpatial::is_sensitive(hh_200m_qt1)$value$count)
+
 
 # 1km grid ----------------------------------------------------------------
 

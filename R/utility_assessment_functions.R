@@ -55,7 +55,7 @@ get_utility <- function(x, orig,
     if (measure[i] == "KWD") {
       
       # rescale to balance mass
-      v_x_sc <- v_x * (sum(v_o) / sum(v_x))
+      # v_x_sc <- v_x * (sum(v_o) / sum(v_x))
       
       # approximate Kantorovic-Wasserstein distance
       xy <- raster::xyFromCell(r_x, 1:raster::ncell(r_x))

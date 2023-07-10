@@ -51,6 +51,8 @@ st_focus_areas <- st_focus_areas <- c(
   list_st_focus_areas[["st_gilles"]]
 )
 
+qtls <- quantile(pop_200m$Men, probs = (0:10)/10)
+
 mapview(
   st_focus_areas,
   color = c("red"),
@@ -60,9 +62,9 @@ mapview(
   mapview(
     pop_200m, 
     z = c("Men"),
-    at = qt,
+    at = qtls[seq(0,10,2)],
     lwd = 0,
-    color.regions = pal5,
+    color.regions = pal[seq(1,10,2)],
     alpha.regions = 0.85,
     layer.name = "Nb of Households"
   ) 
