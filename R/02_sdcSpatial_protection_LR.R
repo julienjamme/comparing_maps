@@ -89,7 +89,31 @@ residual_risk <- purrr::imap_dfr(
   }
 )
 
-# sum(sdcSpatial::is_sensitive(hh_200m_qt1)$value$count)
+# pop in remained sensitive cells -----------------------------------------
+
+sensitive_cells <- is_sensitive(hh_200m_qt1) # get sensitive cells
+data_sens <- cbind(
+  as.data.frame(sensitive_cells,xy=TRUE),
+  # count_orig = getValues(hh_200m_raster$value$count),
+  count_qt1 = getValues(hh_200m_qt1$value$count)
+) %>%
+  filter(!is.na(count_qt1)) %>% 
+  mutate(
+    sensitive = ifelse(is.na(sensitive), FALSE, sensitive)
+  )
+
+data_sens %>% 
+  group_by(sensitive) %>% 
+  summarise(
+    n_cells = n(),
+    # val_orig = sum(count_orig, na.rm = TRUE),
+    val_qt1 = sum(count_qt1, na.rm = TRUE), 
+    .groups = "drop"
+  ) %>% 
+  mutate(
+    part_remain_cells_sensitive = n_cells/sum(n_cells),
+    part_pop_remain_cells_sensitive = val_qt1/sum(val_qt1)
+  )
 
 
 # 1km grid ----------------------------------------------------------------
